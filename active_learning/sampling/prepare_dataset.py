@@ -1,7 +1,7 @@
 # @Author: Pieter Blok
 # @Date:   2021-03-26 14:30:31
 # @Last Modified by:   Pieter Blok
-# @Last Modified time: 2022-02-11 11:16:38
+# @Last Modified time: 2022-02-23 13:33:52
 
 import sys
 import io
@@ -84,6 +84,42 @@ def list_files(rootdir):
         annotations.sort()
 
     return images, annotations
+
+
+def find_tiff_files(traindir, valdir=[], testdir=[], initial_traindir=[]):
+    tiff_images = []
+    tiff_annotations = []
+
+    all_dirs = [traindir, valdir, testdir, initial_traindir]
+    for d in range(len(all_dirs)):
+        if all_dirs[d] != []:
+            if os.path.isdir(all_dirs[d]):
+                for root, dirs, files in list(os.walk(all_dirs[d])):
+                    for name in files:
+                        subdir = root.split(all_dirs[d])
+                        all('' == s for s in subdir)
+                        
+                        if subdir[1].startswith('/'):
+                            subdirname = subdir[1][1:]
+                        else:
+                            subdirname = subdir[1]
+
+                        if name.lower().endswith(".tiff") or name.lower().endswith(".tif"):
+                            if all('' == s for s in subdir):
+                                tiff_images.append(os.path.join(all_dirs[d], name))
+                            else:
+                                tiff_images.append(os.path.join(all_dirs[d], subdirname, name))
+
+                        if name.endswith(".tiff.json") or name.endswith(".tif.json"):
+                            if all('' == s for s in subdir):
+                                tiff_annotations.append(os.path.join(all_dirs[d], name))
+                            else:
+                                tiff_annotations.append(os.path.join(all_dirs[d], subdirname, name))
+            
+                tiff_images.sort()
+                tiff_annotations.sort()
+
+    return tiff_images, tiff_annotations
 
 
 def matching_images_and_annotations(rootdir):
@@ -222,6 +258,8 @@ def process_labelme_json(jsonfile, classnames):
             all_unique_masks[h] = "None" + str(h+1)    
 
     category_ids = []
+    boxes = []
+    areas = []
     masks = []
     crowd_ids = []
 
@@ -230,7 +268,8 @@ def process_labelme_json(jsonfile, classnames):
         masks.append([])
         crowd_ids.append([])
 
-    none_counter = 0 
+    none_counter = 0
+    polygons = False  
 
     for p in data['shapes']:
         group_id = p['group_id']
@@ -253,6 +292,7 @@ def process_labelme_json(jsonfile, classnames):
 
         if run_further:
             if p['shape_type'] == "circle":
+                polygons = True
                 # https://github.com/wkentaro/labelme/issues/537
                 bearing_angles = [0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 
                 180, 195, 210, 225, 240, 255, 270, 285, 300, 315, 330, 345, 360]
@@ -283,19 +323,23 @@ def process_labelme_json(jsonfile, classnames):
                 pts = np.asarray(circle_polygon).astype(np.float32)
                 pts = pts.reshape((-1,1,2))
                 points = np.asarray(pts).flatten().tolist()
+                masks[fill_id].append(points)
                 
             if p['shape_type'] == "rectangle":
-                (x1, y1), (x2, y2) = p['points']
-                x1, x2 = sorted([x1, x2])
-                y1, y2 = sorted([y1, y2])
-                points = [x1, y1, x2, y1, x2, y2, x1, y2]
+                (bbx, bby), (x2, y2) = p['points']
+                bbw = x2-bbx
+                bbh = y2-bby
+                                
+                area = bbw*bbh 
+                areas.append(area)     
+                boxes.append([bbx,bby,bbw,bbh])
 
             if p['shape_type'] == "polygon":
+                polygons = True
                 points = p['points']
                 pts = np.asarray(points).astype(np.float32).reshape(-1,1,2)   
                 points = np.asarray(pts).flatten().tolist()
-
-            masks[fill_id].append(points)
+                masks[fill_id].append(points)
 
             ## labelme version 4.5.6 does not have a crowd_id, so fill it with zeros
             crowd_ids[fill_id] = 0
@@ -303,7 +347,10 @@ def process_labelme_json(jsonfile, classnames):
         else:
             status = "unsuccessful"
 
-    return category_ids, masks, crowd_ids, status
+    if polygons:
+        areas, boxes = bounding_box(masks)
+
+    return category_ids, boxes, areas, crowd_ids, status
 
 
 def process_darwin_json(jsonfile, classnames):
@@ -313,6 +360,8 @@ def process_darwin_json(jsonfile, classnames):
 
     total_masks = len(data['annotations'])
     category_ids = []
+    boxes = []
+    areas = []
     masks = []
     crowd_ids = []
 
@@ -321,7 +370,8 @@ def process_darwin_json(jsonfile, classnames):
         masks.append([])
         crowd_ids.append([])
 
-    fill_id = 0 
+    fill_id = 0
+    polygons = False 
 
     for p in data['annotations']:
         classname = p['name']
@@ -336,6 +386,7 @@ def process_darwin_json(jsonfile, classnames):
 
         if run_further:
             if 'polygon' in p:
+                polygons = True
                 if 'path' in p['polygon']:
                     points = []
                     path_points = p['polygon']['path']
@@ -346,6 +397,7 @@ def process_darwin_json(jsonfile, classnames):
                     masks[fill_id].append(points)
 
             if 'complex_polygon' in p:
+                polygons = True
                 if 'path' in p['complex_polygon']:
                     for k in range(len(p['complex_polygon']['path'])):
                         points = []
@@ -355,6 +407,16 @@ def process_darwin_json(jsonfile, classnames):
                             points.append(path_points[h]['y'])
 
                         masks[fill_id].append(points)
+
+            if 'bounding_box' in p:
+                bbx = p['bounding_box']['x']
+                bby = p['bounding_box']['y']
+                bbw = p['bounding_box']['w']
+                bbh = p['bounding_box']['h']
+                                
+                area = bbw*bbh 
+                areas.append(area)     
+                boxes.append([bbx,bby,bbw,bbh])
                     
             crowd_ids[fill_id] = 0
             status = "successful"
@@ -363,7 +425,10 @@ def process_darwin_json(jsonfile, classnames):
 
         fill_id += 1
 
-    return category_ids, masks, crowd_ids, status
+    if polygons:
+        areas, boxes = bounding_box(masks)
+
+    return category_ids, boxes, areas, crowd_ids, status
 
 
 def process_cvat_xml(xmlfile, classnames):
@@ -397,8 +462,11 @@ def process_cvat_xml(xmlfile, classnames):
     total_masks = len(unique_group_ids)        
 
     category_ids = []
+    boxes = []
+    areas = []
     masks = []
     crowd_ids = []
+    polygons = False 
 
     for i in range(total_masks):
         category_ids.append([])
@@ -422,15 +490,38 @@ def process_cvat_xml(xmlfile, classnames):
                 run_further = False
 
             if run_further:
-                if 'polygon' in obj:
-                    if 'pt' in obj['polygon']:
-                        points = []
-                        path_points = obj['polygon']['pt']
-                        for h in range(len(path_points)):
-                            points.append(float(path_points[h]['x']))
-                            points.append(float(path_points[h]['y']))
+                if 'type' in obj:
+                    if obj['type'] == 'bounding_box':
+                        if 'polygon' in obj:
+                            if 'pt' in obj['polygon']:
+                                bbx = float(obj['polygon']['pt'][0]['x'])
+                                bby = float(obj['polygon']['pt'][0]['y'])
+                                bbw = float(obj['polygon']['pt'][1]['x']) - bbx
+                                bbh = float(obj['polygon']['pt'][3]['y']) - bby
 
-                        masks[fill_id].append(points)
+                                area = bbw*bbh 
+                                areas.append(area)     
+                                boxes.append([bbx,bby,bbw,bbh])
+                    else:
+                        if 'polygon' in obj:
+                            polygons = True
+                            if 'pt' in obj['polygon']:
+                                points = []
+                                path_points = obj['polygon']['pt']
+                                for h in range(len(path_points)):
+                                    points.append(float(path_points[h]['x']))
+                                    points.append(float(path_points[h]['y']))
+                                masks[fill_id].append(points)
+                else:
+                    if 'polygon' in obj:
+                        polygons = True
+                        if 'pt' in obj['polygon']:
+                            points = []
+                            path_points = obj['polygon']['pt']
+                            for h in range(len(path_points)):
+                                points.append(float(path_points[h]['x']))
+                                points.append(float(path_points[h]['y']))
+                            masks[fill_id].append(points)
 
                 crowd_ids[fill_id] = 0
                 status = "successful"
@@ -452,22 +543,48 @@ def process_cvat_xml(xmlfile, classnames):
             run_further = False
 
         if run_further:
-            if 'polygon' in obj:
-                if 'pt' in obj['polygon']:
-                    points = []
-                    path_points = obj['polygon']['pt']
-                    for h in range(len(path_points)):
-                        points.append(float(path_points[h]['x']))
-                        points.append(float(path_points[h]['y']))
+            if 'type' in obj:
+                if obj['type'] == 'bounding_box':
+                    if 'polygon' in obj:
+                        if 'pt' in obj['polygon']:
+                            bbx = float(obj['polygon']['pt'][0]['x'])
+                            bby = float(obj['polygon']['pt'][0]['y'])
+                            bbw = float(obj['polygon']['pt'][1]['x']) - bbx
+                            bbh = float(obj['polygon']['pt'][3]['y']) - bby
 
-                    masks[fill_id].append(points)
+                            area = bbw*bbh 
+                            areas.append(area)     
+                            boxes.append([bbx,bby,bbw,bbh])
+                else:
+                    if 'polygon' in obj:
+                        polygons = True
+                        if 'pt' in obj['polygon']:
+                            points = []
+                            path_points = obj['polygon']['pt']
+                            for h in range(len(path_points)):
+                                points.append(float(path_points[h]['x']))
+                                points.append(float(path_points[h]['y']))
+                            masks[fill_id].append(points)
+            else:
+                if 'polygon' in obj:
+                    polygons = True
+                    if 'pt' in obj['polygon']:
+                        points = []
+                        path_points = obj['polygon']['pt']
+                        for h in range(len(path_points)):
+                            points.append(float(path_points[h]['x']))
+                            points.append(float(path_points[h]['y']))
+                        masks[fill_id].append(points)
 
             crowd_ids[fill_id] = 0
             status = "successful"
         else:
             status = "unsuccessful"
 
-    return category_ids, masks, crowd_ids, status
+    if polygons:
+        areas, boxes = bounding_box(masks)
+
+    return category_ids, boxes, areas, crowd_ids, status
 
 
 def mkdir_supervisely(img_dir, write_dir, supervisely_meta_json):
@@ -505,6 +622,8 @@ def process_supervisely_json(jsonfile, classnames):
 
     total_masks = len(data['objects'])
     category_ids = []
+    boxes = []
+    areas = []
     masks = []
     crowd_ids = []
 
@@ -514,6 +633,7 @@ def process_supervisely_json(jsonfile, classnames):
         crowd_ids.append([])
 
     fill_id = 0 
+    polygons = False 
 
     for p in data['objects']:
         classname = p['classTitle']
@@ -528,6 +648,7 @@ def process_supervisely_json(jsonfile, classnames):
 
         if run_further:
             if 'bitmap' in p:
+                polygons = True
                 if 'data' in p['bitmap']:
                     ## https://legacy.docs.supervise.ly/ann_format/
                     final_mask = np.zeros((data['size']['height'], data['size']['width']), dtype=bool)
@@ -562,6 +683,17 @@ def process_supervisely_json(jsonfile, classnames):
                             points.append(int(contour[h][1]))
                         masks[fill_id].append(points)
 
+            if 'geometryType' in p:
+                if p['geometryType'] == 'rectangle':
+                    bbx, bby = p['points']['exterior'][0]
+                    x2, y2 = p['points']['exterior'][1]
+                    bbw = x2 - bbx
+                    bbh = y2 - bby
+
+                    area = bbw*bbh 
+                    areas.append(area)     
+                    boxes.append([bbx,bby,bbw,bbh])
+
             crowd_ids[fill_id] = 0
             status = "successful"
         else:
@@ -569,7 +701,10 @@ def process_supervisely_json(jsonfile, classnames):
 
         fill_id += 1
 
-    return category_ids, masks, crowd_ids, status
+    if polygons:
+        areas, boxes = bounding_box(masks)
+
+    return category_ids, boxes, areas, crowd_ids, status
 
 
 def bounding_box(masks):
@@ -609,7 +744,7 @@ def visualize_annotations(img, category_ids, boxes, classes):
     img_vis = img.copy()
 
     for i in range(len(boxes)):
-        bbx,bby,bbw,bbh = boxes[i]
+        bbx, bby, bbw, bbh = [int(boxes[i][j]) for j in range(len(boxes[i]))]
         category_id = category_ids[i]
         class_id = category_id-1
         _class = classes[class_id]
@@ -631,68 +766,36 @@ def visualize_annotations(img, category_ids, boxes, classes):
     return img_vis
 
 
-def visualize_mrcnn(img_np, classes, scores, masks, boxes, class_names):
-    masks = masks.astype(dtype=np.uint8)
+def visualize_cnn(img_np, classes, scores, boxes, class_names):
     font_scale = 0.6
     font_thickness = 1
     text_color = [0, 0, 0]
 
-    if masks.any():
-        maskstransposed = masks.transpose(1,2,0) # transform the mask in the same format as the input image array (h,w,num_dets)
-        red_mask = np.zeros((maskstransposed.shape[0],maskstransposed.shape[1]),dtype=np.uint8)
-        blue_mask = np.zeros((maskstransposed.shape[0],maskstransposed.shape[1]),dtype=np.uint8)
-        green_mask = np.zeros((maskstransposed.shape[0],maskstransposed.shape[1]),dtype=np.uint8)
-        all_masks = np.zeros((maskstransposed.shape[0],maskstransposed.shape[1],3),dtype=np.uint8) # BGR
+    colors = [(0, 255, 0), (255, 0, 0), (255, 0, 255), (0, 0, 255), (0, 255, 255), (255, 255, 255)]
+    color_list = np.remainder(np.arange(len(class_names)), len(colors))
+    imgcopy = img_np.copy()
 
-        colors = [(0, 255, 0), (255, 0, 0), (255, 0, 255), (0, 0, 255), (0, 255, 255), (255, 255, 255)]
-        color_list = np.remainder(np.arange(len(class_names)), len(colors))
-        imgcopy = img_np.copy()
+    for i in range(len(boxes)):
+        color = colors[color_list[classes[i]]]
+        x1, y1, x2, y2 = boxes[i, :]
+        cv2.rectangle(imgcopy, (int(x1), int(y1)), (int(x2), int(y2)), color, 1)
 
-        for i in range (maskstransposed.shape[-1]):
-            color = colors[color_list[classes[i]]]
-            x1, y1, x2, y2 = boxes[i, :]
-            cv2.rectangle(imgcopy, (int(x1), int(y1)), (int(x2), int(y2)), color, 1)
+        _class = class_names[classes[i]]
+        text_str = '%s: %.2f' % (_class, scores[i])
 
-            _class = class_names[classes[i]]
-            text_str = '%s: %.2f' % (_class, scores[i])
+        font_face = cv2.FONT_HERSHEY_DUPLEX
 
-            font_face = cv2.FONT_HERSHEY_DUPLEX
+        text_w, text_h = cv2.getTextSize(text_str, font_face, font_scale, font_thickness)[0]
 
-            text_w, text_h = cv2.getTextSize(text_str, font_face, font_scale, font_thickness)[0]
+        if y2 < 100:
+            text_pt = (int(x1), (int(y1) + int(y2)) - 3)
+        else:
             text_pt = (int(x1), int(y1) - 3)
 
-            cv2.rectangle(imgcopy, (int(x1), int(y1)), (int(x1) + text_w, int(y1) - text_h - 4), color, -1)
-            cv2.putText(imgcopy, text_str, text_pt, font_face, font_scale, text_color, font_thickness, cv2.LINE_AA)
+        imgcopy = cv2.rectangle(imgcopy, (int(x1), int(y1)), (int(x1) + text_w, int(y1) - text_h - 4), color, -1)
+        imgcopy = cv2.putText(imgcopy, text_str, text_pt, font_face, font_scale, text_color, font_thickness, cv2.LINE_AA)
 
-            mask = maskstransposed[:,:,i]
-
-            if colors.index(color) == 0: # green
-                green_mask = cv2.add(green_mask,mask)
-            elif colors.index(color) == 1: # blue
-                blue_mask = cv2.add(blue_mask,mask)
-            elif colors.index(color) == 2: # magenta
-                blue_mask = cv2.add(blue_mask,mask)
-                red_mask = cv2.add(red_mask,mask)
-            elif colors.index(color) == 3: # red
-                red_mask = cv2.add(red_mask,mask)
-            elif colors.index(color) == 4: # yellow
-                green_mask = cv2.add(green_mask,mask)
-                red_mask = cv2.add(red_mask,mask)
-            else: #white
-                blue_mask = cv2.add(blue_mask,mask)
-                green_mask = cv2.add(green_mask,mask)
-                red_mask = cv2.add(red_mask,mask)
-
-        all_masks[:,:,0] = blue_mask
-        all_masks[:,:,1] = green_mask
-        all_masks[:,:,2] = red_mask
-        all_masks = np.multiply(all_masks,255).astype(np.uint8)
-
-        img_mask = cv2.addWeighted(imgcopy,1,all_masks,0.5,0)
-    else:
-        img_mask = img_np
-
-    return img_mask
+    return imgcopy
 
 
 def write_file(imgdir, images, name):
@@ -789,10 +892,11 @@ def create_json(rootdir, imgdir, images, classes, name):
                     data = json.load(json_file)
 
                     ## labelfish
-                    if 'label_fish_version' in data['annotation']:
-                        if len(data['annotation']['objects']) > 0:
-                            annot_format = 'label_fish'
-                            write = True
+                    if 'annotation' in data:
+                        if 'label_fish_version' in data['annotation']:
+                            if len(data['annotation']['objects']) > 0:
+                                annot_format = 'label_fish'
+                                write = True
 
                     ## labelme
                     if 'version' in data and 'shapes' in data:
@@ -810,16 +914,19 @@ def create_json(rootdir, imgdir, images, classes, name):
                     if 'objects' in data:
                         if len(data['objects']) > 0:
                             bitmaps = np.zeros(len(data['objects']), dtype=bool)
+                            rectangles = np.zeros(len(data['objects']), dtype=bool)
                             for ob in range(len(data['objects'])):
                                 obj = data['objects'][ob]
                                 if obj['geometryType'] == "bitmap":
                                     bitmaps[ob] = True
+                                if obj['geometryType'] == "rectangle":
+                                    rectangles[ob] = True
 
-                        if all(bitmaps): 
+                        if all(bitmaps) or all(rectangles): 
                             annot_format = 'supervisely'
                             write = True
                         else:
-                            logger.error("Only bitmap-annotations are supported for Supervisely")
+                            logger.error("Only bitmap or rectangle annotations are supported for Supervisely")
                 except:
                     continue
 
@@ -849,20 +956,10 @@ def create_json(rootdir, imgdir, images, classes, name):
                         })
 
             # Procedure to store the annotations in the final JSON file
-            if annot_format == 'label_fish':
-                category_ids, boxes, areas, crowd_ids, status = process_label_fish_json(annot_filename, classes)
-
-            if annot_format == 'labelme':
-                category_ids, masks, crowd_ids, status = process_labelme_json(annot_filename, classes)
-            
-            if annot_format == 'darwin':
-                category_ids, masks, crowd_ids, status = process_darwin_json(annot_filename, classes)
-
-            if annot_format == 'cvat':
-                category_ids, masks, crowd_ids, status = process_cvat_xml(annot_filename, classes)
-
-            if annot_format == 'supervisely':
-                category_ids, masks, crowd_ids, status = process_supervisely_json(annot_filename, classes)
+            if annot_format != 'cvat':
+                category_ids, boxes, areas, crowd_ids, status = eval('process_' + annot_format + '_json(annot_filename, classes)')
+            else:
+                category_ids, boxes, areas, crowd_ids, status = eval('process_' + annot_format + '_xml(annot_filename, classes)')
 
             img_vis = visualize_annotations(img, category_ids, boxes, classes)
 
@@ -999,7 +1096,6 @@ def check_json_presence(config, imgdir, dataset, name, cfg=[]):
                 classes = instances.pred_classes.numpy()
                 scores = instances.scores.numpy()
                 boxes = instances.pred_boxes.tensor.numpy()
-                masks = instances.pred_masks.numpy()
 
                 if use_coco:
                     v = Visualizer(img[:, :, ::-1], MetadataCatalog.get(cfg.DATASETS.TRAIN[0]), scale=1.2)
@@ -1013,19 +1109,19 @@ def check_json_presence(config, imgdir, dataset, name, cfg=[]):
                     class_name = class_labels[class_id]
                     class_names.append(class_name)
                     
-                img_vis = visualize_mrcnn(img, classes, scores, masks, boxes, class_labels)
+                img_vis = visualize_cnn(img, classes, scores, boxes, class_labels)
 
                 if config['export_format'] == 'labelme':
-                    write_labelme_annotations(annot_folder, basename, class_names, masks, height, width)
+                    write_labelme_annotations(annot_folder, basename, class_names, boxes, height, width)
                 elif config['export_format'] == 'cvat':
-                    write_cvat_annotations(annot_folder, basename, class_names, masks, height, width)
+                    write_cvat_annotations(annot_folder, basename, class_names, boxes, height, width)
                 elif config['export_format'] == 'supervisely':
-                    write_supervisely_annotations(out_ann_dir, basename, class_names, masks, height, width, config['supervisely_meta_json'])
-                    write_supervisely_annotations(annot_folder, basename, class_names, masks, height, width, config['supervisely_meta_json'])
+                    write_supervisely_annotations(out_ann_dir, basename, class_names, boxes, height, width, config['supervisely_meta_json'])
+                    write_supervisely_annotations(annot_folder, basename, class_names, boxes, height, width, config['supervisely_meta_json'])
                 elif config['export_format'] == "darwin":
-                    write_darwin_annotations(annot_folder, basename, class_names, masks, height, width)
+                    write_darwin_annotations(annot_folder, basename, class_names, boxes, height, width)
                 else:
-                    logger.error("unsupported export_format in the maskAL.yaml file")
+                    logger.error("unsupported export_format in the boxal.yaml file")
                     sys.exit("Closing application")
 
             diff_img_annot, cur_annot_diff = highlight_missing_annotations(annot_folder, cur_annot_diff)
@@ -1033,11 +1129,7 @@ def check_json_presence(config, imgdir, dataset, name, cfg=[]):
                 diff_img_annot, cur_annot_diff = highlight_missing_annotations(annot_folder, cur_annot_diff)
 
             if config['export_format'] == 'cvat':
-                zipObj = ZipFile(os.path.join(annot_folder, 'cvat_annotations.zip'), 'w')
-                for file in os.listdir(annot_folder):
-                    if file.endswith(".xml"):
-                        zipObj.write(os.path.join(annot_folder, file))
-                zipObj.close()
+                create_zipfile(annot_folder)
             
             if config['export_format'] == 'supervisely':
                 print("Load the preprocessed folder '{:s}' into Supervisely \n\nAfter checking, copy-paste the updated json-annotations to folder '{:s}'\n".format(os.path.join(config['dataroot'], "out_supervisely"), annot_folder))
@@ -1051,7 +1143,11 @@ def check_json_presence(config, imgdir, dataset, name, cfg=[]):
         images, annotations = list_files(annot_folder)
         for a in range(len(annotations)):
             annotation = annotations[a]
-            subdirname = [os.path.dirname(imgb) for imgb in img_basenames if os.path.splitext(annotation)[0] in imgb]
+            if config['export_format'] == 'supervisely':
+                subdirname = [os.path.dirname(imgb) for imgb in img_basenames if os.path.splitext(os.path.splitext(annotation)[0])[0] in imgb]
+            else:
+                subdirname = [os.path.dirname(imgb) for imgb in img_basenames if os.path.splitext(annotation)[0] in imgb]
+                
             if subdirname == [''] or subdirname == []:
                 shutil.copyfile(os.path.join(annot_folder, annotation), os.path.join(imgdir, annotation))
             else:
@@ -1064,70 +1160,34 @@ def check_json_presence(config, imgdir, dataset, name, cfg=[]):
             shutil.rmtree(annot_folder)
 
 
-def write_labelme_annotations(write_dir, basename, class_names, masks, height, width):
-    masks = masks.astype(np.uint8)
-
-    if masks.any():
+def write_labelme_annotations(write_dir, basename, class_names, boxes, height, width):
+    if len(boxes) > 0:
         writedata = {}
         writedata['version'] = "4.5.6"
         writedata['flags'] = {}
         writedata['shapes'] = []
         writename = basename
 
-        md, mh, mw = masks.shape
-        maskstransposed = masks.transpose(1,2,0) # transform the mask in the same format as the input image array (h,w,num_dets)
-        useful_masks = False
+        useful_boxes = False
 
-        for i in range (maskstransposed.shape[-1]):
-            groupid = 1
-            masksel = maskstransposed[:,:,i] # select the individual masks
+        for i in range(len(boxes)):
             class_name = class_names[i]
-            contours_unfiltered, hierarchy = cv2.findContours((masksel*255).astype(np.uint8),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
-            contours = []
-            for cnts in range(len(contours_unfiltered)):
-                area = cv2.contourArea(contours_unfiltered[cnts])
-                if area > 50:
-                    contours.append(contours_unfiltered[cnts])
-               
-            if len(contours) > 0:
-                useful_masks = True
-                if len(contours) == 1:
-                    segm = np.vstack(contours).squeeze()
-                    if segm.ndim > 1:
-                        x = [int(segm[idx][0]) for idx in range(len(segm))]
-                        y = [int(segm[idx][1]) for idx in range(len(segm))]
-                        xy = list(zip(x, y))
+            x1, y1, x2, y2 = [int(boxes[i][j]) for j in range(len(boxes[i]))]
+            bbw = x2 - x1
+            bbh = y2 - y1
+            area = bbw * bbh
 
-                        writedata['shapes'].append({
-                            'label': class_name,
-                            'line_color': None,
-                            'fill_color': None,
-                            'points': xy,
-                            'group_id': None,
-                            'shape_type': "polygon",
-                            'flags': {}
-                        })
-
-                elif len(contours) > 1:
-                    for s in range(len(contours)):
-                        cnt = contours[s]
-                        segm = np.vstack(cnt).squeeze()
-                        if segm.ndim > 1:
-                            x = [int(segm[idx][0]) for idx in range(len(segm))]
-                            y = [int(segm[idx][1]) for idx in range(len(segm))]
-                            xy = list(zip(x, y))
-
-                            writedata['shapes'].append({
-                                'label': class_name,
-                                'line_color': None,
-                                'fill_color': None,
-                                'points': xy,
-                                'group_id': groupid,
-                                'shape_type': "polygon",
-                                'flags': {}
-                            })
-
-                    groupid = groupid + 1
+            if area > 50:
+                useful_boxes = True
+                writedata['shapes'].append({
+                        'label': class_name,
+                        'line_color': None,
+                        'fill_color': None,
+                        'points': [[x1, y1], [x2, y2]],
+                        'group_id': None,
+                        'shape_type': "rectangle",
+                        'flags': {}
+                    })
                         
         writedata['lineColor'] = [0,255,0,128]
         writedata['fillColor'] = [255,0,0,128]
@@ -1137,17 +1197,15 @@ def write_labelme_annotations(write_dir, basename, class_names, masks, height, w
         writedata['imageWidth'] = width
 
         jn = os.path.splitext(basename)[0] +'.json'
-        if useful_masks:
+        if useful_boxes:
             with open(os.path.join(write_dir, jn), 'w') as outfile:
                 json.dump(writedata, outfile)
 
 
-def write_darwin_annotations(write_dir, basename, class_names, masks, height, width):
-    masks = masks.astype(np.uint8)
-
-    if masks.any():
+def write_darwin_annotations(write_dir, basename, class_names, boxes, height, width):
+    if len(boxes) > 0:
         writedata = {}
-        writedata['dataset'] = "maskAL_export"
+        writedata['dataset'] = "boxal_export"
         writedata['image'] = {
             "width": width,
             "height": height,
@@ -1159,70 +1217,30 @@ def write_darwin_annotations(write_dir, basename, class_names, masks, height, wi
             "workview_url": "https://darwin.v7labs.com/"
         }
         writedata['annotations'] = []
-        writename = basename
+        useful_boxes = False
 
-        md, mh, mw = masks.shape
-        maskstransposed = masks.transpose(1,2,0) # transform the mask in the same format as the input image array (h,w,num_dets)
-        useful_masks = False
-
-        for i in range (maskstransposed.shape[-1]):
-            masksel = maskstransposed[:,:,i] # select the individual masks
+        for i in range(len(boxes)):
             class_name = class_names[i]
-            contours_unfiltered, hierarchy = cv2.findContours((masksel*255).astype(np.uint8),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
-            contours = []
-            for cnts in range(len(contours_unfiltered)):
-                area = cv2.contourArea(contours_unfiltered[cnts])
-                if area > 50:
-                    contours.append(contours_unfiltered[cnts])
-               
-            if len(contours) > 0:
-                useful_masks = True
-                if len(contours) == 1:
-                    segm = np.vstack(contours).squeeze()
-                    if segm.ndim > 1:
-                        x = [float(segm[idx][0]) for idx in range(len(segm))]
-                        y = [float(segm[idx][1]) for idx in range(len(segm))]
-                        xy = list(zip(x, y))
+            x1, y1, x2, y2 = [int(boxes[i][j]) for j in range(len(boxes[i]))]
+            bbw = x2 - x1
+            bbh = y2 - y1
+            area = bbw * bbh
 
-                        writedata['annotations'].append({
-                            'instance_id': {"value": i+1},
-                            'name': class_name,
-                            'polygon': {"path": []},
-                        })
-
-                        for r in range(len(xy)):
-                            writedata['annotations'][i]['polygon']["path"].append({"x": xy[r][0], "y": xy[r][1]})
-
-                elif len(contours) > 1:
-                    writedata['annotations'].append({
-                            'instance_id': {"value": i+1},
-                            'name': class_name,
-                            'complex_polygon': {"path": []},
-                        })
-                    vc = 0
-                    for s in range(len(contours)):
-                        cnt = contours[s]
-                        segm = np.vstack(cnt).squeeze()
-                        if segm.ndim > 1:
-                            writedata['annotations'][i]['complex_polygon']["path"].append([])
-                            x = [float(segm[idx][0]) for idx in range(len(segm))]
-                            y = [float(segm[idx][1]) for idx in range(len(segm))]
-                            xy = list(zip(x, y))
-
-                            for r in range(len(xy)):
-                                writedata['annotations'][i]['complex_polygon']["path"][vc].append({"x": xy[r][0], "y": xy[r][1]})
-                            vc += 1
+            if area > 50:
+                useful_boxes = True
+                writedata['annotations'].append({
+                    'name': class_name,
+                    'bounding_box': {"h": bbh, "w": bbw, "x": x1, "y": y1},
+                })
 
         jn = os.path.splitext(basename)[0] +'.json'
-        if useful_masks:
+        if useful_boxes:
             with open(os.path.join(write_dir, jn), 'w') as outfile:
                 json.dump(writedata, outfile)
 
 
-def write_cvat_annotations(write_dir, basename, class_names, masks, height, width):
-    masks = masks.astype(np.uint8)
-
-    if masks.any():
+def write_cvat_annotations(write_dir, basename, class_names, boxes, height, width):
+    if len(boxes) > 0:
         annot = ET.Element("annotation")
         ET.SubElement(annot, "filename").text = basename
         ET.SubElement(annot, "folder")
@@ -1235,110 +1253,82 @@ def write_cvat_annotations(write_dir, basename, class_names, masks, height, widt
         ET.SubElement(imagesize, "nrows").text = str(height).rstrip()
         ET.SubElement(imagesize, "ncols").text = str(width).rstrip()
 
-        md, mh, mw = masks.shape
-        maskstransposed = masks.transpose(1,2,0) # transform the mask in the same format as the input image array (h,w,num_dets)
-        polygons = 0
-        useful_masks = False
+        box_id = 0
+        useful_boxes = False
 
-        for i in range (maskstransposed.shape[-1]):
-            masksel = maskstransposed[:,:,i] # select the individual masks
+        for i in range(len(boxes)):
             class_name = class_names[i]
-            contours_unfiltered, hierarchy = cv2.findContours((masksel*255).astype(np.uint8),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
-            contours = []
-            for cnts in range(len(contours_unfiltered)):
-                area = cv2.contourArea(contours_unfiltered[cnts])
-                if area > 50:
-                    contours.append(contours_unfiltered[cnts])
-               
-            if len(contours) > 0:
-                useful_masks = True
-                if len(contours) == 1:
-                    xmlobj = ET.SubElement(annot, "object")
-                    ET.SubElement(xmlobj, "name").text = class_name
-                    ET.SubElement(xmlobj, "deleted").text = str(0).rstrip()
-                    ET.SubElement(xmlobj, "verified").text = str(0).rstrip()
-                    ET.SubElement(xmlobj, "occluded").text = "no"
-                    ET.SubElement(xmlobj, "date")
-                    ET.SubElement(xmlobj, "id").text = str(polygons).rstrip()
-                    
-                    parts = ET.SubElement(xmlobj, "parts")
-                    ET.SubElement(parts, "hasparts")
-                    ET.SubElement(parts, "ispartof")
+            x1, y1, x2, y2 = boxes[i, :]
+            bbw = x2 - x1
+            bbh = y2 - y1
+            area = bbw * bbh
 
-                    segm = np.vstack(contours).squeeze()
-                    if segm.ndim > 1:                
-                        polygon = ET.SubElement(xmlobj, "polygon")
-                        for j in range(len(segm)):
-                            pt = ET.SubElement(polygon, "pt")
-                            ET.SubElement(pt, "x").text = str(segm[j][0]).rstrip()
-                            ET.SubElement(pt, "y").text = str(segm[j][1]).rstrip()
-                        ET.SubElement(polygon, "username")
-                        ET.SubElement(xmlobj, "attributes")    
+            if area > 50:
+                useful_boxes = True
+                xmlobj = ET.SubElement(annot, "object")
+                ET.SubElement(xmlobj, "name").text = class_name
+                ET.SubElement(xmlobj, "deleted").text = str(0).rstrip()
+                ET.SubElement(xmlobj, "verified").text = str(0).rstrip()
+                ET.SubElement(xmlobj, "occluded").text = "no"
+                ET.SubElement(xmlobj, "date")
+                ET.SubElement(xmlobj, "id").text = str(box_id).rstrip()
+                
+                parts = ET.SubElement(xmlobj, "parts")
+                ET.SubElement(parts, "hasparts")
+                ET.SubElement(parts, "ispartof")
+                ET.SubElement(xmlobj, "type").text = "bounding_box"
 
-                        polygons += 1
+                polygon = ET.SubElement(xmlobj, "polygon")
 
-                elif len(contours) > 1:
-                    for s in range(len(contours)):
-                        xmlobj = ET.SubElement(annot, "object")
-                        ET.SubElement(xmlobj, "name").text = class_name
-                        ET.SubElement(xmlobj, "deleted").text = str(0).rstrip()
-                        ET.SubElement(xmlobj, "verified").text = str(0).rstrip()
-                        ET.SubElement(xmlobj, "occluded").text = "no"
-                        ET.SubElement(xmlobj, "date")
-                        ET.SubElement(xmlobj, "id").text = str(polygons).rstrip()
+                pt = ET.SubElement(polygon, "pt")
+                ET.SubElement(pt, "x").text = "{:.2f}".format(x1)
+                ET.SubElement(pt, "y").text = "{:.2f}".format(y1)
 
-                        parts = ET.SubElement(xmlobj, "parts")
-                        if s == 0:
-                            hasparts_str = ''
-                            for ss in range(1, len(contours)):
-                                part_id = polygons + ss
-                                hasparts_str = hasparts_str + str(part_id) + ","
-                            hasparts_str = hasparts_str[:-1]
-                            ET.SubElement(parts, "hasparts").text = hasparts_str.rstrip()
-                            ET.SubElement(parts, "ispartof")
-                            polygon_id = polygons
-                        else:
-                            ET.SubElement(parts, "hasparts")
-                            ET.SubElement(parts, "ispartof").text = str(polygon_id).rstrip()
+                pt = ET.SubElement(polygon, "pt")
+                ET.SubElement(pt, "x").text = "{:.2f}".format(x2)
+                ET.SubElement(pt, "y").text = "{:.2f}".format(y1)
 
-                        cnt = contours[s]
-                        segm = np.vstack(cnt).squeeze()
-                        if segm.ndim > 1:     
-                            polygon = ET.SubElement(xmlobj, "polygon")
-                            for j in range(len(segm)):
-                                pt = ET.SubElement(polygon, "pt")
-                                ET.SubElement(pt, "x").text = str(segm[j][0]).rstrip()
-                                ET.SubElement(pt, "y").text = str(segm[j][1]).rstrip()
-                            ET.SubElement(polygon, "username")
-                            ET.SubElement(xmlobj, "attributes")
+                pt = ET.SubElement(polygon, "pt")
+                ET.SubElement(pt, "x").text = "{:.2f}".format(x1)
+                ET.SubElement(pt, "y").text = "{:.2f}".format(y2)
 
-                            polygons += 1
+                pt = ET.SubElement(polygon, "pt")
+                ET.SubElement(pt, "x").text = "{:.2f}".format(x2)
+                ET.SubElement(pt, "y").text = "{:.2f}".format(y2)
+
+                ET.SubElement(polygon, "username")
+                ET.SubElement(xmlobj, "attributes").text = "rotation=0.0"
+
+                box_id += 1
 
         tree = ET.ElementTree(annot)
         xmln = os.path.splitext(basename)[0] +'.xml'
-        if useful_masks:
+        if useful_boxes:
             tree.write(os.path.join(write_dir, xmln))
 
 
-def write_supervisely_annotations(write_dir, basename, class_names, masks, height, width, meta_json):
+def create_zipfile(annot_folder):
+    zipObj = ZipFile(os.path.join(annot_folder, 'cvat_annotations.zip'), 'w')
+    for file in os.listdir(annot_folder):
+        if file.endswith(".xml"):
+            zipObj.write(os.path.join(annot_folder, file))
+    zipObj.close()
+
+
+def write_supervisely_annotations(write_dir, basename, class_names, boxes, height, width, meta_json):
     with open(meta_json, 'r') as json_file:
         data = json.load(json_file)
 
-    masks = masks.astype(np.uint8)
-
-    if masks.any():
+    if len(boxes) > 0:
         writedata = {}
         writedata['description'] = ""
         writedata['tags'] = []
         writedata['size'] = {"height": height, "width": width}
         writedata['objects'] = []
 
-        md, mh, mw = masks.shape
-        maskstransposed = masks.transpose(1,2,0) # transform the mask in the same format as the input image array (h,w,num_dets)
-        useful_masks = False
+        useful_boxes = False
 
-        for i in range (maskstransposed.shape[-1]):
-            masksel = maskstransposed[:,:,i] # select the individual masks
+        for i in range(len(boxes)):
             class_name = class_names[i]
 
             for cn in range(len(data['classes'])):
@@ -1346,56 +1336,56 @@ def write_supervisely_annotations(write_dir, basename, class_names, masks, heigh
                 if class_name == meta_class_name:
                     class_id = int(data['classes'][cn]['id'])
 
-            contours, _ = cv2.findContours((masksel*255).astype(np.uint8),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
-            cnt = np.concatenate(contours)
-            xx,yy,w,h = cv2.boundingRect(cnt)
-
             time = datetime.datetime.now()
             time_str = str(time)[:-3].replace(' ','T') + "Z"
 
-            num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(masksel, 4, cv2.CV_32S)
-            for s in range(1, num_labels):
-                area = stats[s, cv2.CC_STAT_AREA]
-                if area <= 50:
-                    labels = np.where(labels==s, 0, labels)
+            x1, y1, x2, y2 = [int(boxes[i][j]) for j in range(len(boxes[i]))]
+            bbw = x2 - x1
+            bbh = y2 - y1
+            area = bbw * bbh
 
-            masksel = np.where(labels > 0, 1, labels)
-               
-            if cv2.contourArea(cnt) > 50:
-                useful_masks = True
-                
-                ## https://legacy.docs.supervise.ly/ann_format/
-                maskclip = masksel[yy:yy+h, xx:xx+w]
-                img_pil = Image.fromarray(np.array(maskclip, dtype=np.uint8))
-                img_pil.putpalette([0,0,0,255,255,255])
-                bytes_io = io.BytesIO()
-                img_pil.save(bytes_io, format='PNG', transparency=0, optimize=0)
-                bytes = bytes_io.getvalue()
-                bitmap = base64.b64encode(zlib.compress(bytes)).decode('utf-8')
+            if area > 50:
+                useful_boxes = True
 
                 writedata['objects'].append({
                     'id': i+1,
                     'classId': class_id,
                     'description': "", 
-                    'geometryType': "bitmap",
+                    'geometryType': "rectangle",
                     'labelerLogin': "auto_annotate",
                     'createdAt': time_str,
                     'updatedAt': time_str,
                     'tags': [],
                     'classTitle': class_name,
-                    'bitmap': {'data': bitmap, 'origin': []}
+                    'points': {'exterior': [[x1, y1], [x2, y2]], 'interior': []}
                 })
 
-                writedata['objects'][-1]['bitmap']['origin'].append(xx)
-                writedata['objects'][-1]['bitmap']['origin'].append(yy)
-
         jn = basename +'.json'
-        if useful_masks:
+        if useful_boxes:
             with open(os.path.join(write_dir, jn), 'w') as outfile:
                 json.dump(writedata, outfile)
 
 
-## the function below is heavily inspired by the function "repeat_factors_from_category_frequency" in maskAL/detectron2/data/samplers/distributed_sampler.py
+def convert_tiffs(tiff_files, tiff_annotations=[]):
+    print("\nConverting the tif/tiff images to png")
+    for tf in tqdm(range(len(tiff_files))):
+        img = cv2.imread(tiff_files[tf])
+        basename = os.path.splitext(tiff_files[tf])[0]
+        writename = basename + '.png'
+        cv2.imwrite(writename, img)
+        os.remove(tiff_files[tf])
+
+    print("\nConverting the tif/tiff annotations")
+    for ta in tqdm(range(len(tiff_annotations))):
+        annot_file = tiff_annotations[ta]
+        if annot_file.lower().endswith(".tiff.json"):
+            output_json = annot_file.split(".tiff.json")[0] + ".png.json"
+        if annot_file.lower().endswith(".tif.json"):
+            output_json = annot_file.split(".tif.json")[0] + ".png.json"
+        os.rename(annot_file, output_json)
+
+
+## the function below is heavily inspired by the function "repeat_factors_from_category_frequency" in boxal/detectron2/data/samplers/distributed_sampler.py
 def calculate_repeat_threshold(config, dataset_dicts_train):
     images_with_class_annotations = np.zeros(len(config['classes'])).astype(np.int16)
     for d in range(len(dataset_dicts_train)):

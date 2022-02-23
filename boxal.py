@@ -1,7 +1,7 @@
 # @Author: Pieter Blok
 # @Date:   2021-03-25 18:48:22
 # @Last Modified by:   Pieter Blok
-# @Last Modified time: 2022-02-11 11:12:16
+# @Last Modified time: 2022-02-23 13:38:52
 
 ## Active learning with Mask R-CNN
 
@@ -45,7 +45,7 @@ import detectron2.utils.comm as comm
 
 ## libraries that are specific for dropout training
 from active_learning.strategies.dropout import FastRCNNConvFCHeadDropout, FastRCNNOutputLayersDropout, Res5ROIHeadsDropout
-from active_learning.sampling import observations, prepare_initial_dataset, prepare_initial_dataset_from_list, prepare_initial_dataset_randomly, update_train_dataset, prepare_complete_dataset, calculate_repeat_threshold, calculate_iterations, read_train_file
+from active_learning.sampling import observations, prepare_initial_dataset, prepare_initial_dataset_from_list, prepare_initial_dataset_randomly, update_train_dataset, prepare_complete_dataset, calculate_repeat_threshold, calculate_iterations, read_train_file, find_tiff_files, convert_tiffs
 from active_learning.sampling.montecarlo_dropout import MonteCarloDropout, MonteCarloDropoutHead
 from active_learning.heuristics import uncertainty
 
@@ -393,7 +393,6 @@ def train(config, weightsfolder, gpu_num, iter, val_value, dropout_probability, 
     elif any(x in config['network_config'] for x in ["C4"]):
         cfg.MODEL.ROI_HEADS.NAME = 'Res5ROIHeadsDropout'
         
-    # cfg.MODEL.ROI_MASK_HEAD.NAME = 'MaskRCNNConvUpsampleHeadDropout'
     cfg.MODEL.ROI_HEADS.SOFTMAXES = False
     cfg.OUTPUT_DIR = weightsfolder
 
@@ -618,6 +617,17 @@ if __name__ == "__main__":
     weightsfolders, resultsfolders, csv_names = init_folders_and_files(config)
     remove_initial_training_set(config['dataroot'])
     max_entropy = calculate_max_entropy(config['classes'])
+
+    if config['auto_annotate'] and config['export_format'] == "supervisely":
+        if config['use_initial_train_dir']:
+            tiff_images, tiff_annotations = find_tiff_files(config['traindir'], config['valdir'], config['testdir'], config['initial_train_dir'])
+        else:
+            tiff_images, tiff_annotations = find_tiff_files(config['traindir'], config['valdir'], config['testdir'])
+        
+        if tiff_images != []:
+            print("\n{:d} images and {:d} annotations found with .tiff or .tif extension: unfortunately Supervisely does not support these extensions".format(len(tiff_images), len(tiff_annotations)))
+            input("Press Enter to automatically convert the {:d} images and the {:d} annotations to .png extension".format(len(tiff_images), len(tiff_annotations)))
+            convert_tiffs(tiff_images, tiff_annotations)
 
     if config['use_initial_train_dir']:
         move_initial_train_dir(config['initial_train_dir'], config['traindir'], "images")
