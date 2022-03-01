@@ -1,7 +1,7 @@
 # @Author: Pieter Blok
 # @Date:   2021-03-25 15:06:20
 # @Last Modified by:   Pieter Blok
-# @Last Modified time: 2022-01-29 15:48:26
+# @Last Modified time: 2022-02-28 20:21:00
 
 # This function is inspired by the uncertainty_aware_dropout function:
 # https://github.com/RovelMan/active-learning-framework/blob/master/al_framework/strategies/dropout.py
@@ -14,6 +14,9 @@ def uncertainty(observations, iterations, max_entropy, device, mode = 'mean'):
     To calculate the uncertainty metrics on the observations
     """
     uncertainty_list = []
+    usem_list = []
+    uspl_list = []
+    un_list = []
     
     for key, val in observations.items():
         softmaxes = [v['softmaxes'] for v in val]
@@ -50,7 +53,10 @@ def uncertainty(observations, iterations, max_entropy, device, mode = 'mean'):
         outputs_len = torch.tensor(iterations).to(device)
 
         u_sem = torch.clamp(torch.mean(inv_entropies_norm), min=0, max=1)
+        usem_list.append(u_sem.unsqueeze(0))
+
         u_spl = torch.clamp(torch.divide(bbox_IOUs.sum(), val_len), min=0, max=1)
+        uspl_list.append(u_spl.unsqueeze(0))
         u_sem_spl = torch.multiply(u_sem, u_spl)
         
         try:
@@ -58,11 +64,15 @@ def uncertainty(observations, iterations, max_entropy, device, mode = 'mean'):
         except:
             u_n = 0.0
 
+        un_list.append(u_n.unsqueeze(0))
         u_h = torch.multiply(u_sem_spl, u_n)
         uncertainty_list.append(u_h.unsqueeze(0))
 
     if uncertainty_list:
         uncertainty_list = torch.cat(uncertainty_list)
+        usem_list = torch.mean(torch.cat(usem_list))
+        uspl_list = torch.mean(torch.cat(uspl_list))
+        un_list = torch.mean(torch.cat(un_list))
 
         if mode == 'min':
             uncertainty = torch.min(uncertainty_list)
@@ -75,5 +85,8 @@ def uncertainty(observations, iterations, max_entropy, device, mode = 'mean'):
             
     else:
         uncertainty = torch.tensor([float('NaN')]).to(device)
+        usem_list = torch.tensor([float('NaN')]).to(device)
+        uspl_list = torch.tensor([float('NaN')]).to(device)
+        un_list = torch.tensor([float('NaN')]).to(device)
 
-    return uncertainty.detach().cpu().numpy().squeeze(0)
+    return uncertainty.detach().cpu().numpy().squeeze(0), usem_list.detach().cpu().numpy().squeeze(0), uspl_list.detach().cpu().numpy().squeeze(0), un_list.detach().cpu().numpy().squeeze(0)

@@ -1,7 +1,7 @@
 # @Author: Pieter Blok
 # @Date:   2021-03-26 14:30:31
 # @Last Modified by:   Pieter Blok
-# @Last Modified time: 2022-02-23 13:33:52
+# @Last Modified time: 2022-02-28 14:09:59
 
 import sys
 import io
@@ -23,6 +23,7 @@ from tqdm import tqdm
 import xmltodict
 import logging
 from zipfile import ZipFile
+from glob import glob
 
 from detectron2 import model_zoo
 from detectron2.engine import DefaultPredictor
@@ -51,6 +52,16 @@ def print_exception(e):
     stk = traceback.extract_tb(tb, 2)
     fname = stk[-1][2]
     logger.error(f'Error in function {fname}: '+ repr(e))
+
+
+def list_subfolders_sequantially(imgdir):
+    subfolders = []
+    sf = glob(imgdir + "/*", recursive = True)
+    if len(sf) > 0:
+        subfolders = [os.path.basename(s) for s in sf if os.path.isdir(s)]
+    subfolders.sort()
+    
+    return subfolders
 
 
 def list_files(rootdir):
@@ -1472,16 +1483,29 @@ def prepare_complete_dataset(rootdir, classes, traindir, valdir, testdir):
 
 def prepare_initial_dataset_randomly(config):
     try:
-        for imgdir, name, init_ds in zip([config['traindir'], config['valdir'], config['testdir']], ['train', 'val', 'test'], [config['initial_datasize'], 0, 0]):
+        for imgdir, name, init_ds, group in zip([config['traindir'], config['valdir'], config['testdir']], ['train', 'val', 'test'], [config['initial_datasize'], 0, 0], [False, config["group_val_test_set"], config["group_val_test_set"]]):
             print("")
-            print("Processing {:s}-dataset: {:s}".format(name, imgdir))
             rename_xml_files(imgdir)
             images, annotations = list_files(imgdir)
+
+            if config['incremental_learning']:
+                subfolders = list_subfolders_sequantially(imgdir)
+                if not group:
+                    images = [i for i in images if subfolders[0] in i]
+                    annotations = [a for a in annotations if subfolders[0] in a]
+                    print("Processing {:s}-dataset: {:s}".format(name, os.path.join(imgdir, subfolders[0])))
+                else:
+                    print("Processing {:s}-dataset: {:s}".format(name, imgdir))
+                if name == "train":
+                    init_ds = int(np.maximum(np.floor(len(images) * (config['sampling_percentage_per_subset'] / 100)), 1))
+            else:
+                print("Processing {:s}-dataset: {:s}".format(name, imgdir))
+                
             print("{:d} images found!".format(len(images)))
             print("{:d} annotations found!".format(len(annotations)))
 
             if init_ds > 0:
-                initial_train_images = random.sample(images, config['initial_datasize'])
+                initial_train_images = random.sample(images, init_ds)
                 write_file(config['dataroot'], images, "train")
                 write_file(config['dataroot'], initial_train_images, "initial_train")
                 check_json_presence(config, imgdir, initial_train_images, "train")
@@ -1523,11 +1547,22 @@ def prepare_initial_dataset(config):
 
 def prepare_initial_dataset_from_list(config, train_list):
     try:
-        for i, (imgdir, name) in enumerate(zip([config['traindir'], config['valdir'], config['testdir']], ['train', 'val', 'test'])):
+        for imgdir, name, group in zip([config['traindir'], config['valdir'], config['testdir']], ['train', 'val', 'test'], [False, config["group_val_test_set"], config["group_val_test_set"]]):
             print("")
-            print("Processing {:s}-dataset: {:s}".format(name, imgdir))
             rename_xml_files(imgdir)
             images, annotations = list_files(imgdir)
+
+            if config['incremental_learning']:
+                subfolders = list_subfolders_sequantially(imgdir)
+                if not group:
+                    images = [i for i in images if subfolders[0] in i]
+                    annotations = [a for a in annotations if subfolders[0] in a]
+                    print("Processing {:s}-dataset: {:s}".format(name, os.path.join(imgdir, subfolders[0])))
+                else:
+                    print("Processing {:s}-dataset: {:s}".format(name, imgdir))
+            else:
+                print("Processing {:s}-dataset: {:s}".format(name, imgdir))
+                
             print("{:d} images found!".format(len(images)))
             print("{:d} annotations found!".format(len(annotations)))
             write_file(config['dataroot'], images, name)
@@ -1545,16 +1580,27 @@ def prepare_initial_dataset_from_list(config, train_list):
         sys.exit("Closing application")      
 
 
-def update_train_dataset(config, cfg, train_list):
+def update_train_dataset(config, cfg, train_list, val_list, test_list):
     try:
-        rename_xml_files(config['traindir'])
-        images, annotations = list_files(config['traindir'])
-        print("{:d} images found!".format(len(images)))
-        print("{:d} annotations found!".format(len(annotations)))
+        if config['incremental_learning']:
+            dirlist = [config['traindir'], config['valdir'], config['testdir']]
+            namelist = ['train', 'val', 'test']
+            filelist = [train_list, val_list, test_list]
+        else:
+            dirlist = [config['traindir']]
+            namelist = ['train']
+            filelist = [train_list]
 
-        check_json_presence(config, config['traindir'], train_list, "train", cfg)
-        print("Converting annotations...")
-        create_json(config['dataroot'], config['traindir'], train_list, config['classes'], "train")
+        for imgdir, name, file_list in zip(dirlist, namelist, filelist):
+            rename_xml_files(imgdir)
+            images, annotations = list_files(imgdir)
+            print("{:d} images found!".format(len(images)))
+            print("{:d} annotations found!".format(len(annotations)))
+
+            check_json_presence(config, imgdir, file_list, name, cfg)
+            print("Converting annotations...")
+            create_json(config['dataroot'], imgdir, file_list, config['classes'], name)
+
         
     except Exception as e:
         print_exception(e)

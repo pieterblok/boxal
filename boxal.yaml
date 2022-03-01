@@ -24,7 +24,7 @@ pretrained_weights: "COCO-Detection/faster_rcnn_X_101_32x8d_FPN_3x.yaml"
 cuda_visible_devices: '0'
 classes: ['healthy', 'damaged', 'matured', 'cateye', 'headrot']
 transfer_learning_on_previous_models: True
-learning_rate: 0.01
+learning_rate: 0.005
 warmup_iterations: 500
 train_iterations_base: 2500
 train_iterations_step_size: 2500
@@ -45,7 +45,7 @@ repeat_factor_smallest_class: 1.0
 
 # evaluation-parameters
 confidence_threshold: 0.5
-nms_threshold: 0.01
+nms_threshold: 0.3
 
 # active-learning sampling
 experiment_name: 'exp1'
@@ -53,7 +53,6 @@ strategy: 'uncertainty'
 mode: 'mean'
 initial_datasize: 100
 pool_size: 200
-equal_pool_size: True
 loops: 5
 dropout_probability: 0.25
 mcd_iterations: 10
@@ -61,3 +60,7 @@ iou_thres: 0.95
 auto_annotate: True
 export_format: labelme
 supervisely_meta_json: "./datasets/meta.json"
+
+# incremental learning
+incremental_learning: False
+sampling_percentage_per_subset: 10

@@ -51,7 +51,6 @@ strategy: ['string', 'list']
 mode: ['string', 'list']
 initial_datasize: 'integer'
 pool_size: ['integer', 'list']
-equal_pool_size: 'boolean'
 loops: 'integer'
 dropout_probability: 'float'
 mcd_iterations: 'integer'
@@ -59,3 +58,7 @@ iou_thres: 'float'
 auto_annotate: 'boolean'
 export_format: 'string'
 supervisely_meta_json: 'string'
+
+# incremental learning
+incremental_learning: 'boolean'
+sampling_percentage_per_subset: 'integer'
