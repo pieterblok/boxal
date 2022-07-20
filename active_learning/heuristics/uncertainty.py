@@ -1,7 +1,7 @@
 # @Author: Pieter Blok
 # @Date:   2021-03-25 15:06:20
 # @Last Modified by:   Pieter Blok
-# @Last Modified time: 2022-02-28 20:21:00
+# @Last Modified time: 2022-07-20 21:19:00
 
 # This function is inspired by the uncertainty_aware_dropout function:
 # https://github.com/RovelMan/active-learning-framework/blob/master/al_framework/strategies/dropout.py
@@ -70,18 +70,27 @@ def uncertainty(observations, iterations, max_entropy, device, mode = 'mean'):
 
     if uncertainty_list:
         uncertainty_list = torch.cat(uncertainty_list)
-        usem_list = torch.mean(torch.cat(usem_list))
-        uspl_list = torch.mean(torch.cat(uspl_list))
-        un_list = torch.mean(torch.cat(un_list))
 
         if mode == 'min':
             uncertainty = torch.min(uncertainty_list)
+            usem_list = torch.min(torch.cat(usem_list))
+            uspl_list = torch.min(torch.cat(uspl_list))
+            un_list = torch.min(torch.cat(un_list))
         elif mode == 'mean':
             uncertainty = torch.mean(uncertainty_list)
+            usem_list = torch.mean(torch.cat(usem_list))
+            uspl_list = torch.mean(torch.cat(uspl_list))
+            un_list = torch.mean(torch.cat(un_list))
         elif mode == 'max':
             uncertainty = torch.max(uncertainty_list)
+            usem_list = torch.max(torch.cat(usem_list))
+            uspl_list = torch.max(torch.cat(uspl_list))
+            un_list = torch.max(torch.cat(un_list))
         else:
             uncertainty = torch.mean(uncertainty_list)
+            usem_list = torch.mean(torch.cat(usem_list))
+            uspl_list = torch.mean(torch.cat(uspl_list))
+            un_list = torch.mean(torch.cat(un_list))
             
     else:
         uncertainty = torch.tensor([float('NaN')]).to(device)

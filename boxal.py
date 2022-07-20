@@ -1,7 +1,7 @@
 # @Author: Pieter Blok
 # @Date:   2021-03-25 18:48:22
 # @Last Modified by:   Pieter Blok
-# @Last Modified time: 2022-02-28 20:59:37
+# @Last Modified time: 2022-07-20 21:17:33
 
 ## Active learning for object detection in Detectron2
 
@@ -669,8 +669,7 @@ if __name__ == "__main__":
         move_initial_train_dir(config['initial_train_dir'], config['traindir'], "images")
         prepare_initial_dataset(config)
         move_initial_train_dir(config['initial_train_dir'], config['traindir'], "annotations")
-
-    if config['duplicate_initial_model_and_data']:
+    elif config['duplicate_initial_model_and_data']:
         initial_train_files = read_train_file(config['initial_train_file'])
         prepare_initial_dataset_from_list(config, initial_train_files)
     else:
