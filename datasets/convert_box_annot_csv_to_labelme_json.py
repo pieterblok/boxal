@@ -17,8 +17,8 @@ the  annotate subdir inside the train dir is autmatically generated while traini
 '''
 n = 100 # number of rows to be read from the csv file
 csv_filename = "/projects/parisa/data/progstar/box_annot/box_annotation_final.csv"
-png_dir = "/projects/parisa/data/test_boxal/faster_rcnn/train/" #annotate/"
-json_dir = "/projects/parisa/data/test_boxal/faster_rcnn/train/" #annotate/"
+png_dir = "/projects/parisa/data/test_boxal/faster_rcnn/train/annotate/"
+json_dir = "/projects/parisa/data/test_boxal/faster_rcnn/train/annotate/"
 
 
 '''
