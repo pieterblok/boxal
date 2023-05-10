@@ -7,3 +7,4 @@ detectron2/model_zoo/configs
 build/
 results/
 weights/
+output/
