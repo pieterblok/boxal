@@ -35,6 +35,7 @@ step_ratios: ['float', 'list']
 gamma: 'float'
 train_batch_size: 'integer'
 num_workers: 'integer'
+filter_empty_annotation: 'boolean'
 
 # train-sampler
 train_sampler: 'string'
