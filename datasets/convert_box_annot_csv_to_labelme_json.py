@@ -15,7 +15,7 @@ import json, csv
 0. input parameters:
 the  annotate subdir inside the train dir is autmatically generated while training and the new annotation should be placed there.
 '''
-n = 100 # number of rows to be read from the csv file
+n = 200 # number of rows to be read from the csv file
 csv_filename = "/projects/parisa/data/progstar/box_annot/box_annotation_final.csv"
 png_dir = "/projects/parisa/data/test_boxal/faster_rcnn/train/annotate/"
 json_dir = "/projects/parisa/data/test_boxal/faster_rcnn/train/annotate/"
@@ -63,9 +63,9 @@ for png_file in glob.iglob(os.path.join(png_dir, '*.png')):
             while (box_num+1)*4<len(row) and not row[(box_num+1)*4]=='': #the first x1,x2,y1,y2 starts from row[4] (accidentally). the next box is the next 4 columns and so on till there is void ''
                 x_box = [float(row[(box_num+1)*4]), float(row[(box_num+1)*4+1])]
                 y_box = [float(row[(box_num+1)*4+2]), float(row[(box_num+1)*4+3])]
-                points = [[x_box[0], y_box[0]], [x_box[0], y_box[1]], [x_box[1], y_box[0]], [x_box[1], y_box[1]]] # 4 points of (x,y) for a rectangle
+                points = [(x_box[0], y_box[0]), (x_box[1], y_box[1])] 
                 shape = {
-                    "label": "damaged_retina",
+                    "label": "damaged",
                     "line_color": None,
                     "fill_color": None,
                     "points": points,
@@ -75,6 +75,7 @@ for png_file in glob.iglob(os.path.join(png_dir, '*.png')):
                 }
                 shapes.append(shape)
                 box_num += 1
+            print(shapes)
             writedata["shapes"] = shapes
             writedata["imagePath"]= png_file
             writedata["imageData"] = None
