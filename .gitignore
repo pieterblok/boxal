@@ -7,5 +7,7 @@ detectron2/model_zoo/configs
 build/
 results*/
 weights*/
-output/
+output*/
 work_process.md
+boxal_*py
+boxal_*yaml
