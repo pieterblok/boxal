@@ -5,11 +5,11 @@
 # folders
 weightsroot: "./weights"
 resultsroot: "./results"
-dataroot: "../../data/test_boxal/faster_rcnn"
+dataroot: "./datasets"
 initial_train_dir: "./datasets/initial_train"
-traindir: "../../data/test_boxal/faster_rcnn/train"
-valdir: "../../data/test_boxal/faster_rcnn/val"
-testdir: "../../data/test_boxal/faster_rcnn/test"
+traindir: "./datasets/train"
+valdir: "./datasets/val"
+testdir: "./datasets/test"
 
 # data options
 use_initial_train_dir: False
@@ -22,14 +22,14 @@ pretrained_weights: "COCO-Detection/faster_rcnn_X_101_32x8d_FPN_3x.yaml"
 
 # training-parameters
 cuda_visible_devices: '0'
-classes: ['damaged']
+classes: ['healthy', 'damaged', 'matured', 'cateye', 'headrot']
 transfer_learning_on_previous_models: True
 learning_rate: 0.005
-warmup_iterations: 10 #500
-train_iterations_base: 50 #2500
-train_iterations_step_size: 50 #2500
-step_image_number: 10 #500
-eval_period: 10 #500
+warmup_iterations: 500
+train_iterations_base: 2500
+train_iterations_step_size: 2500
+step_image_number: 500
+eval_period: 500
 checkpoint_period: -1
 weight_decay: 0.0001
 learning_policy: 'steps_with_decay'
@@ -37,12 +37,10 @@ step_ratios: [0.5, 0.8]
 gamma: 0.1
 train_batch_size: 1
 num_workers: 2
-filter_empty_annotation: False
-
 
 # train-sampler
 train_sampler: "TrainingSampler"
-minority_classes: ['damaged']
+minority_classes: ['damaged', 'matured', 'cateye', 'headrot']
 repeat_factor_smallest_class: 1.0
 
 # evaluation-parameters
@@ -53,9 +51,9 @@ nms_threshold: 0.3
 experiment_name: 'exp1'
 strategy: 'uncertainty'
 mode: 'mean'
-initial_datasize: 5
-pool_size: 5
-loops: 4
+initial_datasize: 100
+pool_size: 200
+loops: 5
 dropout_probability: 0.25
 mcd_iterations: 10
 iou_thres: 0.95
