@@ -16,7 +16,7 @@ cd singularity
 ```
 singularity run --nv -B /projects/ -B /usr/local/scratch/ singularity/boxal.sif
 ```
-2. convert xml annotation files to labelme json:
+2. convert excel annotation file to labelme json:
 ```
 python3 datasets/convert_box_annot_excel_to_labelme_json.py
 ```
