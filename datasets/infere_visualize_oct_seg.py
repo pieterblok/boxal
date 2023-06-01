@@ -87,8 +87,8 @@ cfg = get_cfg()
 cfg.merge_from_file(model_zoo.get_config_file("COCO-Detection/faster_rcnn_X_101_32x8d_FPN_3x.yaml"))
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = 1  # has five classes, one for each layer. (see https://detectron2.readthedocs.io/tutorials/datasets.html#update-the-config-for-new-datasets)
 #cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS = False # to use those data with empty annotation
-cfg.INPUT.FORMAT = "RGB" # input images are black and white
-cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = 0.05
+cfg.INPUT.FORMAT = "L" # input images are black and white
+cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = 0.01 #suppress boxes with overlap (IoU) >= this threshold
 #cfg.MODEL.ANCHOR_GENERATOR.SIZES = [[64, 128 , 256, 512]]
 #cfg.MODEL.ANCHOR_GENERATOR.ASPECT_RATIOS = [[0.002, 0.01, 0.02, 0.05]]
 
