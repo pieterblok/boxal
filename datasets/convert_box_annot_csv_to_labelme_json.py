@@ -84,7 +84,7 @@ def main(argv):
     png_dir = "/projects/parisa/data/test_boxal/faster_rcnn/train/annotate/"
     json_dir = "/projects/parisa/data/test_boxal/faster_rcnn/train/annotate/"
 
-    opts, args = getopt.getopt(argv,"hn:c:p:j",["num_rows=","csv_file=","png_dir=","json_dir="])
+    opts, args = getopt.getopt(argv,"hn:c:p:j:",["num_rows=","csv_file=","png_dir=","json_dir="])
     for opt, arg in opts:
         if opt == '-h':
             print ('python convert_box_annot_csv_to_labelme_json.py -n <number_of_rows_to_be_read_from_csv_file> -c <csv_filename> -p <png_dir> -j <json_dir>')
