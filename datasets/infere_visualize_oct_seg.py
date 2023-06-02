@@ -5,7 +5,9 @@ setup_logger()
 
 # import some common libraries
 import numpy as np
-import os, json, glob
+import os, glob
+import sys, getopt
+import json
 import cv2, random
 
 # import some common detectron2 utilities
