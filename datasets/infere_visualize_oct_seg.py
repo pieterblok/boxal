@@ -141,7 +141,7 @@ def main(argv):
     opts, args = getopt.getopt(argv,"hi:a:o:m:w:",["img_dir=","annot_dir=","output_dir=", "path_to_model=", "weight_dir="])
     for opt, arg in opts:
         if opt == '-h':
-            print('python infere_visualize_oct_seg.py -i <image_dir> -a <annotation_dir> -o <output_dir> -m <path_to_model> -w <weight_dir>)
+            print('python infere_visualize_oct_seg.py -i <image_dir> -a <annotation_dir> -o <output_dir> -m <path_to_model> -w <weight_dir>')
             sys.exit()
         elif opt in ("-i", "--img_dir"):
             img_dir = arg
