@@ -118,11 +118,11 @@ def main(argv):
         annotation_exits = False
         '''
         3. find the corresponding row of the csv and create json for it
-        '''        
+        '''       
         for row in rows:
             if row[0] == os.path.basename(png_file):
                 annotation_exits = True
-            write_labelme_json_file(row, png_file, json_dir)
+                write_labelme_json_file(row, png_file, json_dir)
 
         if annotation_exits == False:
             print("annotation not found!")
