@@ -8,7 +8,7 @@ it is not a forked epo, rather a clone which was pushed to a new remote on iob g
 1. build the container (only once)
 ```
 cd singularity
-2. singularity build --fakeroot boxal.sif boxal.def
+singularity build --fakeroot boxal.sif boxal.def
 ```
 ---------------------------------
 # usage
