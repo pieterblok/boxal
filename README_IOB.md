@@ -55,3 +55,31 @@ python datasets/convert_box_annot_csv_to_labelme_json.py
 python3 boxal.py --config boxal.yaml
 ```
 7. The  model introduces new images to be annotated, located at the `/projects/parisa/data/boxal/faster_rcnn/train/annotate` directory.
+
+------------------------------------
+# the output metrics/instances:
+After training, four text files are generated in the `results` and `weights` folders which include metrics or inference results. No `output` folder is generated. Here are the files:
+1. `weights/exp1/uncertainty/metrics.json`
+This is similar to the original `metrics.json` file which is generated after running detectron2 without the AL implementation.
+2. `weights/exp1/uncertainty/inference/coco_instances_results.json`
+This file includes some instances. Part of the file below:
+```
+[{"image_id": 1, "category_id": 1, "bbox": [314.2623596191406, 95.52009582519531, 341.5835876464844, 76.62232971191406], "score": 0.9237105250358582},
+{"image_id": 5, "category_id": 1, "bbox": [146.166259765625, 143.88946533203125, 850.9454956054688, 76.61729431152344], "score": 0.9729232788085938},
+{"image_id": 5, "category_id": 1, "bbox": [172.25726318359375, 141.29135131835938, 465.15924072265625, 73.83609008789062], "score": 0.23908992111682892},
+{"image_id": 5, "category_id": 1, "bbox": [600.7523193359375, 146.4454803466797, 285.7037353515625, 77.92771911621094], "score": 0.07600747048854828},
+{"image_id": 7, "category_id": 1, "bbox": [327.11590576171875, 86.79924011230469, 404.923095703125, 96.70126342773438], "score": 0.207632377743721}, ...
+```
+3. `results/exp1/uncertainty/coco_instances_results.json`
+This file is very similar to the previous file but with different instances.
+4. `results/exp1/uncertainty/uncertainty.csv`
+The content of this file is: 
+```
+train_size,val_size,test_size,mAP,mAP-damaged
+16,31,29,12.8,12.8
+25,31,29,18.2,18.2
+33,31,29,17.0,17.0
+45,31,29,17.0,17.0
+56,31,29,23.2,23.2
+60,31,29,20.7,20.7
+```
