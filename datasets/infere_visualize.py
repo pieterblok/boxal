@@ -21,19 +21,20 @@ from detectron2.data import MetadataCatalog, DatasetCatalog
 1- read oct data 
 2- load a pretrained model
 3- infere and evaluate
+4- load the saved model in file model_final.pth and save the new prediction in the same output dir
 
-it loads the saved model in file model_final.pth in the default output_dir which is "output"
-and will save the new prediction in the same output dir
+usage:
+	python infere_visualize_oct_seg.py -i <data_dir> -o <output_dir> -m <path_to_model> -w <weights_dir>
 '''
 
 '''
 TODO call this from a class
 '''
-def get_oct_dicts(img_dir, annot_dir):
+def get_oct_dicts(data_dir):
     from detectron2.structures import BoxMode
     dataset_dicts = []
-    for idx, f in enumerate(glob.glob(img_dir+"/*.png")):
-        json_file = os.path.join(annot_dir, os.path.basename(f)[:-4]+".json")
+    for idx, f in enumerate(glob.glob(data_dir+"/*.png")):
+        json_file = os.path.join(data_dir, os.path.basename(f)[:-4]+".json")
         print(json_file)
         img_annot = json.load(open(json_file))
         record={}
@@ -57,18 +58,17 @@ def get_oct_dicts(img_dir, annot_dir):
         dataset_dicts.append(record)
     return dataset_dicts
 
-def infer(img_dir, annot_dir, output_dir, model_path, weights_dir):
+def infer(data_dir, output_dir, model_path, weights_dir):
     '''
     1. register the get_oct_dicts function
         note that here the function is not called
     2. load dataset into a dictionary
     '''
     for d in ["test"]:
-        dataset_dicts = get_oct_dicts(img_dir+"test", annot_dir+"test")
-        DatasetCatalog.register("oct_" + d, lambda d=d: get_oct_dicts(img_dir+"test", annot_dir+"test")) # register your function
+        DatasetCatalog.register("oct_" + d, lambda d=d: get_oct_dicts(data_dir+"test")) # register your function
         MetadataCatalog.get("oct_" + d).set(thing_classes=["damaged"])
     oct_metadata = MetadataCatalog.get("oct_test")
-    dataset_dicts = get_oct_dicts(img_dir+"test", annot_dir+"test")
+    dataset_dicts = get_oct_dicts(data_dir+"test")
 
     '''
     load the model
@@ -133,40 +133,39 @@ def main(argv):
     get input files/dirs
     '''
     # default values
-    img_dir = "/projects/parisa/data/test_boxal/faster_rcnn/"
-    annot_dir = "/projects/parisa/data/test_boxal/faster_rcnn/"
-    output_dir = "./output/"
-    model_path = "./COCO-Detection/faster_rcnn_X_101_32x8d_FPN_3x.yaml"
-    weights_dir = "./weights/exp1/uncertainty/"
+    data_dir = ""
+    output_dir = ""
+    model_path = ""
+    weights_dir = ""
     
-    opts, args = getopt.getopt(argv,"hi:a:o:m:w:",["img_dir=","annot_dir=","output_dir=", "path_to_model=", "weights_dir="])
+    opts, args = getopt.getopt(argv,"hi:a:o:m:w:",["data_dir=","output_dir=", "path_to_model=", "weights_dir="])
     for opt, arg in opts:
         if opt == '-h':
-            print('python infere_visualize_oct_seg.py -i <image_dir> -a <annotation_dir> -o <output_dir> -m <path_to_model> -w <weights_dir>')
+            print('\npython infere_visualize_oct_seg.py -i <image_dir> -o <output_dir> -m <path_to_model> -w <weights_dir> \n \
+                   data_dir: the directory where the train/val/test directories are located.\n \
+                   output_dir: the directory where the inference results are saved, for example: ./output\n \
+                   path_to_model: the path to the model yaml file that was used for training, for example: ./COCO-Detection/faster_rcnn_X_101_32x8d_FPN_3x.yaml\n \
+                   weight_dir: the directory where the weights of training are saved, for example: ./weights/exp1/uncertainty/\n\n')
             sys.exit()
-        elif opt in ("-i", "--img_dir"):
-            img_dir = arg
-        elif opt in ("-a", "--annot_dir"):
-            annot_dir = arg
+        elif opt in ("-i", "--data_dir"):
+            data_dir = arg
         elif opt in ("-o", "--output_dir"):
             output_dir = arg
         elif opt in ("-m", "--path_to_model"):
             model_path = arg
         elif opt in ("-w", "--weights_dir"):
             weights_dir = arg
-    if len(argv) < 6:
-        print("WARNING: default inputs will be used: {}, {}, {}, {}, {}".format(img_dir, annot_dir, output_dir, model_path, weights_dir))
+    if len(argv) < 5:
+        print("WARNING: default inputs will be used: {}, {}, {}, {}".format(data_dir, output_dir, model_path, weights_dir))
 
-    if not os.path.exists(img_dir):
-        sys.exit("ERROR: {} does not exist!".format(img_dir))
-    if not os.path.exists(annot_dir):
-        sys.exit("ERROR: {} does not exist!".format(annot_dir))
+    if not os.path.exists(data_dir):
+        sys.exit("ERROR: {} does not exist!".format(data_dir))
     if not os.path.exists(weights_dir):
         sys.exit("ERROR: {} does not exist!".format(weights_dir))
     if not os.path.exists(output_dir):
             os.mkdir(output_dir)
         
-    infer(img_dir, annot_dir, output_dir, model_path, weights_dir)
+    infer(data_dir, output_dir, model_path, weights_dir)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
