@@ -94,7 +94,7 @@ def infer(data_dir, output_dir, model_path, weights_dir):
     predictor = DefaultPredictor(cfg)
 
     from detectron2.utils.visualizer import ColorMode
-    for d in random.sample(dataset_dicts, 5):    
+    for d in random.sample(dataset_dicts, 45):    
         im = cv2.imread(d["file_name"])
         outputs = predictor(im)  # format is documented at https://detectron2.readthedocs.io/tutorials/models.html#model-output-format
         from detectron2.data import detection_utils as utils

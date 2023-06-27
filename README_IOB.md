@@ -57,6 +57,27 @@ python3 boxal.py --config boxal.yaml
 7. The  model introduces new images to be annotated, located at the `/projects/parisa/data/boxal/faster_rcnn/train/annotate` directory.
 
 ------------------------------------
+# make a test run on data on scratch dir:
+1. use those data which are already annotated
+2. make a new test directory in scratch for this: `/usr/local/scratch/parisa/data/test_boxal/`
+3. copy the single_box_annotation_final.csv file into the new dir
+4. `python copy_png_files_listed_in_csv.py`
+5. `python shuffle_divide_copy_files.py -i <input_dir> -o <output_dir>`
+6. `python shuffle_train_mv_20img_to_initial_train.py -i train/ -o initial_train/`
+7. run this for test/val/initial_train:
+   `python /projects/parisa/git_software/boxal/datasets/convert_box_annot_csv_to_labelme_json.py -n 1000 -c single_box_annotation_final.csv -p val/ -j val/`
+8. `singularity run --nv -B /projects/ -B /usr/local/scratch/ singularity/boxal.sif `
+9. `python3 boxal.py --config boxal_test_scratch.yaml`
+10. run this after each iteration to create new annotation json files:
+    `python /projects/parisa/git_software/boxal/datasets/convert_box_annot_csv_to_labelme_json.py -n 1000 -c single_box_annotation_final.csv -p train/annotate/ -j train/annotate/`
+11. infer at the end or after each loop as below:
+    `python3 datasets/infere_visualize.py -i /usr/local/scratch/parisa/data/test_boxal/ -o ./output_test_scratch -m ./COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml -w ./weights_test_scratch/exp1/uncertainty/`
+12. draw train loss at the end of training or after each loop as below. `-n` number of loop is one less than the actual number of loops, so after first loop, set it to 0 in the following command:
+    `python3 draw_metrics.py -i weights_test_scratch/exp1/uncertainty/metrics.json -o output_test_scratch/loss_test_scratch.png -n 5 -t 500`
+13. use tensorboard to plot the loss output:
+   `tensorboard --logdir weights_test_scratch_0/exp1/uncertainty/ --port 6006`
+
+------------------------------------
 # the output metrics/instances:
 After training, four text files are generated in the `results` and `weights` folders which include metrics or inference results. No `output` folder is generated. Here are the files:
 1. `weights/exp1/uncertainty/metrics.json`
