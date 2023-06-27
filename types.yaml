@@ -35,7 +35,9 @@ step_ratios: ['float', 'list']
 gamma: 'float'
 train_batch_size: 'integer'
 num_workers: 'integer'
-filter_empty_annotation: 'boolean'
+filter_empty_annotations: 'boolean'
+anchor_sizes: ['integer', 'list']
+anchor_aspect_ratios: ['float', 'list']
 
 # train-sampler
 train_sampler: 'string'

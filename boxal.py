@@ -27,7 +27,7 @@ from cerberus import Validator
 import warnings
 warnings.filterwarnings("ignore")
 
-## detectron2-libraries 
+## detectron2-libraries
 import detectron2
 from detectron2.utils.logger import setup_logger
 setup_logger()
@@ -76,7 +76,7 @@ def check_config_file(config, config_filename, input_yaml):
     config_ok = True
     error_list = {}
     schema = {}
-    
+
     try:
         with open(input_yaml, 'rb') as file:
             desired_inputs = yaml.load(file, Loader=yaml.FullLoader)
@@ -153,7 +153,7 @@ def check_config_file(config, config_filename, input_yaml):
         logger.error(f"Errors in the configuration-file: {config_filename}")
         for key, value in error_list.items():
             print(f"config['{key}']: {value}")
-    
+
     return config_ok
 
 
@@ -162,8 +162,8 @@ def process_config_file(config, ints_to_lists):
 
     for il in range(len(ints_to_lists)):
         int_to_list = ints_to_lists[il]
-        config[int_to_list] = (config[int_to_list] if type(config[int_to_list]) is list else [config[int_to_list]])                
-        lengths.append(len(config[int_to_list])) 
+        config[int_to_list] = (config[int_to_list] if type(config[int_to_list]) is list else [config[int_to_list]])
+        lengths.append(len(config[int_to_list]))
     max_length = max(lengths)
 
     for il in range(len(ints_to_lists)):
@@ -175,12 +175,12 @@ def process_config_file(config, ints_to_lists):
             tiff_images, tiff_annotations = find_tiff_files(config['traindir'], config['valdir'], config['testdir'], config['initial_train_dir'])
         else:
             tiff_images, tiff_annotations = find_tiff_files(config['traindir'], config['valdir'], config['testdir'])
-        
+
         if tiff_images != []:
             print("\n{:d} images and {:d} annotations found with .tiff or .tif extension: unfortunately Supervisely does not support these extensions".format(len(tiff_images), len(tiff_annotations)))
             input("Press Enter to automatically convert the {:d} images and the {:d} annotations to .png extension".format(len(tiff_images), len(tiff_annotations)))
             convert_tiffs(tiff_images, tiff_annotations)
-        
+
     return config
 
 
@@ -199,7 +199,7 @@ def init_folders_and_files(config):
     counts = list(counts.values())
     duplicates = any(x > 1 for x in counts)
     hybrid_count = 0
-        
+
     for strategy, mode, dropout_probability, mcd_iterations, pool_size in zip(config['strategy'], config['mode'], config['dropout_probability'], config['mcd_iterations'], config['pool_size']):
         if duplicates:
             if isinstance(pool_size, list):
@@ -209,10 +209,10 @@ def init_folders_and_files(config):
         else:
             folder_name = strategy
 
-        weightsfolder = os.path.join(config['weightsroot'], config['experiment_name'], folder_name)            
+        weightsfolder = os.path.join(config['weightsroot'], config['experiment_name'], folder_name)
         check_direxcist(weightsfolder)
         weightsfolders.append(weightsfolder)
-        
+
         resultsfolder = os.path.join(config['resultsroot'], config['experiment_name'], folder_name)
         check_direxcist(resultsfolder)
         resultsfolders.append(resultsfolder)
@@ -237,7 +237,7 @@ def check_subfolders(config):
             sfs = [os.path.basename(s) for s in sf if os.path.isdir(s)]
         sfs.sort()
         subfolders[i] = sfs
-    
+
     if Counter(subfolders[0]) != Counter(subfolders[1]) or Counter(subfolders[0]) != Counter(subfolders[2]):
         logger.info("The folder structures of the traindir, valdir or testdir are not identical")
         logger.info("The validation set and test set will be processed as one set")
@@ -258,7 +258,7 @@ def load_initial_val_value(weightsfolder):
     with open(os.path.join(weightsfolder, 'val_value_init.pkl'), 'rb') as f1:
         val_value_init = pickle.load(f1)
     return val_value_init
-    
+
 
 def calculate_max_entropy(classes):
     least_confident = np.divide(np.ones(len(classes)), len(classes)).astype(np.float32)
@@ -343,7 +343,7 @@ def copy_initial_weight_file(read_folder, weightsfolder, iter):
     check_direxcist(weightsfolder)
     if os.path.exists(os.path.join(read_folder, weight_file)):
         copyfile(os.path.join(read_folder, weight_file), os.path.join(weightsfolder, weight_file))
-        
+
 
 def copy_previous_weights(weights_folder, iteration):
     check_direxcist(weights_folder)
@@ -351,9 +351,9 @@ def copy_previous_weights(weights_folder, iteration):
     next_weights_file = os.path.join(weights_folder, "best_model_{:s}.pth".format(str(iteration).zfill(3)))
     if os.path.isfile(previous_weights_file):
         copyfile(previous_weights_file, next_weights_file)
-    
 
-def train(config, weightsfolder, gpu_num, iter, val_value, dropout_probability, init=False, skip_training=False):    
+
+def train(config, weightsfolder, gpu_num, iter, val_value, dropout_probability, init=False, skip_training=False):
     ## Hook to automatically save the best checkpoint
     class BestCheckpointer(HookBase):
         def __init__(self, iter, eval_period, val_value, metric):
@@ -362,7 +362,7 @@ def train(config, weightsfolder, gpu_num, iter, val_value, dropout_probability, 
             self.val_value = val_value
             self.metric = metric
             self.logger = setup_logger(name="d2.checkpointer.best")
-            
+
         def store_best_model(self):
             metric = self.trainer.storage._latest_scalars
 
@@ -427,7 +427,7 @@ def train(config, weightsfolder, gpu_num, iter, val_value, dropout_probability, 
         cfg.MODEL.ROI_HEADS.NAME = 'StandardROIHeadsDropout'
     elif any(x in config['network_config'] for x in ["C4"]):
         cfg.MODEL.ROI_HEADS.NAME = 'Res5ROIHeadsDropout'
-        
+
     cfg.MODEL.ROI_HEADS.SOFTMAXES = False
     cfg.OUTPUT_DIR = weightsfolder
 
@@ -456,14 +456,14 @@ def train(config, weightsfolder, gpu_num, iter, val_value, dropout_probability, 
     if cfg.DATALOADER.SAMPLER_TRAIN == 'RepeatFactorTrainingSampler':
         repeat_threshold = calculate_repeat_threshold(config, dataset_dicts_train)
         cfg.DATALOADER.REPEAT_THRESHOLD = repeat_threshold
-        
+
     max_iterations, steps = calculate_iterations(config, dataset_dicts_train)
 
-    ## initialize the training parameters  
+    ## initialize the training parameters
     cfg.DATASETS.TRAIN = ("train",)
     cfg.DATASETS.TEST = ("val",)
     cfg.NUM_GPUS = gpu_num
-    cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS = config['filter_empty_annotation']
+    cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS = config['filter_empty_annotations']
     cfg.DATALOADER.NUM_WORKERS = config['num_workers']
     cfg.SOLVER.IMS_PER_BATCH = config['train_batch_size']
     cfg.SOLVER.WEIGHT_DECAY = config['weight_decay']
@@ -481,7 +481,11 @@ def train(config, weightsfolder, gpu_num, iter, val_value, dropout_probability, 
 
     cfg.TEST.EVAL_PERIOD = config['eval_period']
     cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(config['classes'])
-    
+
+    ## add anchor sizes and aspect ratios
+    cfg.MODEL.ANCHOR_GENERATOR.SIZES = config['anchor_sizes']
+    cfg.MODEL.ANCHOR_GENERATOR.ASPECT_RATIOS = config['anchor_aspect_ratios']
+
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
 
     if not skip_training:
@@ -491,13 +495,13 @@ def train(config, weightsfolder, gpu_num, iter, val_value, dropout_probability, 
 
     try:
         val_value_output = trainer.storage._latest_scalars['highest_value'][0]
-    except: 
+    except:
         val_value_output = val_value
 
     return cfg, dataset_dicts_train, dataset_dicts_val, val_value_output
 
 
-def evaluate(cfg, config, dataset_dicts_train, dataset_dicts_val, weightsfolder, resultsfolder, csv_name, iter, init=False):      
+def evaluate(cfg, config, dataset_dicts_train, dataset_dicts_val, weightsfolder, resultsfolder, csv_name, iter, init=False):
     if not init:
         DatasetCatalog.remove("test")
     register_coco_instances("test", {}, os.path.join(config['dataroot'], "test.json"), config['testdir'])
@@ -510,7 +514,7 @@ def evaluate(cfg, config, dataset_dicts_train, dataset_dicts_val, weightsfolder,
         cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "best_model_{:s}.pth".format(str(iter).zfill(3)))
     else:
         cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_final.pth")
-        
+
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = config['confidence_threshold']   # set the testing threshold for this model
     cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = config['nms_threshold']
     cfg.DATASETS.TEST = ("test",)
@@ -523,7 +527,7 @@ def evaluate(cfg, config, dataset_dicts_train, dataset_dicts_val, weightsfolder,
     evaluator = COCOEvaluator("test", {"bbox"}, False, output_dir=resultsfolder)
     val_loader = build_detection_test_loader(cfg, "test")
     eval_results = inference_on_dataset(model, val_loader, evaluator)
-    
+
     bbox_strings = [c.replace(c, 'AP-' + c) for c in config['classes']]
 
     if len(config['classes']) == 1:
@@ -579,7 +583,7 @@ def uncertainty_pooling(pool_list, pool_size, cfg, config, max_entropy, mcd_iter
 def certainty_pooling(pool_list, pool_size, cfg, config, max_entropy, mcd_iterations, mode):
     pool = {}
     cfg.MODEL.ROI_HEADS.SOFTMAXES = True
-    predictor = MonteCarloDropoutHead(cfg, mcd_iterations)  
+    predictor = MonteCarloDropoutHead(cfg, mcd_iterations)
     device = cfg.MODEL.DEVICE
 
     if len(pool_list) > 0:
@@ -620,13 +624,13 @@ def random_pooling(pool_list, pool_size, cfg, config, max_entropy, mcd_iteration
     else:
         print("All images are used for the training, stopping the program...")
 
-    return pool    
+    return pool
 
 
 if __name__ == "__main__":
     logger.addHandler(file_handler)
     logger.info("Starting main-application")
-    
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, default='maskAL.yaml', help='yaml with the training parameters')
     args = parser.parse_args()
@@ -643,7 +647,7 @@ if __name__ == "__main__":
         print(key, ':', value)
 
     config_ok = check_config_file(config, args.config, 'types.yaml')
-    if not config_ok: 
+    if not config_ok:
         sys.exit("Closing application")
 
     config = process_config_file(config, ['strategy', 'mode', 'pool_size', 'dropout_probability', 'mcd_iterations', 'loops'])
@@ -676,7 +680,7 @@ if __name__ == "__main__":
     else:
         prepare_initial_dataset_randomly(config)
 
-    ## active-learning        
+    ## active-learning
     for strategy, pool_size, mcd_iterations, mode, dropout_probability, loops, weightsfolder, resultsfolder, csv_name in zip(config['strategy'], config['pool_size'], config['mcd_iterations'], config['mode'], config['dropout_probability'], config['loops'], weightsfolders, resultsfolders, csv_names):
         ## duplicate the initial model, when comparing the uncertainty sampling with the random sampling
         if config['duplicate_initial_model_and_data']:
@@ -684,18 +688,18 @@ if __name__ == "__main__":
             copy_initial_weight_file(duplicated_weightsfolder, weightsfolder, 0)
             val_value_init = load_initial_val_value(duplicated_weightsfolder)
             cfg, dataset_dicts_train, dataset_dicts_val, val_value = train(config, weightsfolder, gpu_num, 1, val_value_init, dropout_probability, init=True, skip_training=True)
-        
+
         ## train and evaluate Mask R-CNN on the randomly sampled initial dataset
         else:
             cfg, dataset_dicts_train, dataset_dicts_val, val_value = train(config, weightsfolder, gpu_num, 0, 0, dropout_probability, init=True)
             store_initial_val_value(val_value, weightsfolder)
-        
+
         cfg, dataset_dicts_test = evaluate(cfg, config, dataset_dicts_train, dataset_dicts_val, weightsfolder, resultsfolder, csv_name, 0, init=True)
         train_names = get_image_names(dataset_dicts_train, config['traindir'])
         val_names = get_image_names(dataset_dicts_val, config['valdir'])
         test_names = get_image_names(dataset_dicts_test, config['testdir'])
         write_train_files(train_names, resultsfolder, 0)
-        
+
         ## do the iterative pooling
         for l in range(loops):
             copy_previous_weights(weightsfolder, l+1)
