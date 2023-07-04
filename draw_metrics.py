@@ -105,8 +105,10 @@ def main(argv):
     draw plots
     '''
     plt.figure(figsize=(12, 7))
-    plt.plot(train_it, loss_tot, label = 'loss_total', marker = 'o', markersize=4, linestyle=':')
+    if not plot_all:
+        plt.plot(train_it, loss_tot, label = 'loss_total', linestyle='-')
     if plot_all:
+        plt.plot(train_it, loss_tot, label = 'loss_total', marker = 'o', markersize=4, linestyle=':')
         plt.plot(train_it, loss_cls, label = 'loss_cls', marker = 's', markersize=4, linestyle=':')
         plt.plot(train_it, loss_box_reg, label = 'loss_box_reg', marker = '^', markersize=4, linestyle=':')
         plt.plot(train_it, loss_rpn_cls, label = 'loss_rpn_cls', marker = 'x', markersize=4, linestyle='none', fillstyle='none')
@@ -114,8 +116,8 @@ def main(argv):
     #plt.plot(train_it, loss_sum, label = 'loss_sum', marker = 'o', markersize=3, linestyle='none')
     #plt.plot(train_it, accu, marker = 'o', markersize=3, linestyle='none', fillstyle='none')
 
-#    plt.xlim([20,2020])
-#    plt.ylim([-0.02,0.45])
+    plt.xlim([0,30000])
+    plt.ylim([0,0.4])
     plt.grid()
     plt.legend()
     plt.xlabel("Iteration")
