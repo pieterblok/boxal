@@ -9,47 +9,33 @@ def main(argv):
     '''
     metrics_filename = ""
     output_plot_filename = ""
-    n_loops = -1 # number of active learning loops
-    n_iterations = -1 # number of training iterations per loop
     plot_all = False
 
-    opts, args = getopt.getopt(argv,"hi:o:n:t:p",["input_filename=","output_plot_filename=", "n_loops=", "n_iterations="])
+    opts, args = getopt.getopt(argv,"hi:o:n",["input_filename=","output_plot_filename="])
     for opt, arg in opts:
         if opt == '-h':
-            print('python draw_metrics.py -i <input_filename> -o <output_plot_filename> -n <n_loops> -t <n_iterations> -p\n \
-                input_filename: is the metrics.json file\n \
-                output_plot_filename: is the name of png file to save the plots\n \
-                n_loops: is the number of loops for the active learning algorithm in the boxal.yaml file which is one less than the total number of loops\n \
-                n_iterations: is the number of training iterations per loop\n \
-                p: plot all other losses other than the total loss. (Default=False)')
+            print('python draw_metrics.py -i <input_filename> -o <output_plot_filename> -p\n \
+                -i (--input_filename): input_filename is the path to the metrics.json file\n \
+                -o (--output_plot_filename): output_plot_filename is the path to the name of png file to save the plots\n \
+                -p (--plot all): plot all other losses other than the total loss. (Default=False)')
             sys.exit()
         elif opt in ("-i", "--input_filename"):
             metrics_filename = arg
         elif opt in ("-o", "--output_plot_filename"):
             output_plot_filename = arg
-        elif opt in ("-n", "--n_loops"):
-            n_loops = int(arg)
-        elif opt in ("-t", "--n_iterations"):
-            n_iterations = int(arg)
         elif opt in ("-p", "--plot_all"):
             plot_all = True
 
 
-    if len(argv) < 5:
+    if len(argv) < 3:
         sys.exit('ERROR: input arguments not provided!\n \
-            python draw_metrics.py -i <input_filename> -o <output_plot_filename> -n <n_loops> -t <n_iterations> -p\n \
-            input_filename: is the metrics.json file\n \
-            output_plot_filename: is the name of png file to save the plots\n \
-            n_loops: is the number of loops for the active learning algorithm in the boxal.yaml file which is one less than the total number of loops\n \
-            n_iterations: is the number of training iterations per loop\n \
-            p: plot all other losses other than the total loss. (Default=False)')
+            python draw_metrics.py -i <input_filename> -o <output_plot_filename> -p\n \
+                -i (--input_filename): input_filename is the path to the metrics.json file\n \
+                -o (--output_plot_filename): output_plot_filename is the path to the name of png file to save the plots\n \
+                -p (--plot all) - optional: plot all other losses other than the total loss. (Default=False)')
 
     if not os.path.exists(metrics_filename):
         sys.exit("ERROR: input file does not exist! {}".format(metrics_filename))
-    if n_loops < 0:
-        sys.exit("ERROR: number of AL loops is less than 1! {}".format(n_loops))
-    if n_iterations < 0:
-        sys.exit("ERROR: number of iterations per loop is less than 1! {}".format(n_iterations))
 
 
     '''
@@ -63,6 +49,7 @@ def main(argv):
     loss_cls = []
     accu = []
     loss_sum = []
+    loss_val = []
     with open(metrics_filename) as f:
         for json_obj in f:
             dict = json.loads(json_obj)
@@ -74,12 +61,16 @@ def main(argv):
                 loss_rpn_loc.append(dict['loss_rpn_loc'])
                 loss_box_reg.append(dict['loss_box_reg'])
                 loss_cls.append(dict['loss_cls'])
+                if 'validation_loss' in dict: loss_val.append(dict['validation_loss'])
                 s = dict['loss_rpn_cls'] + dict['loss_rpn_loc'] + dict['loss_box_reg'] + dict['loss_cls']
                 loss_sum.append(s)
 
-    j = len(train_it)//(n_loops+1)
+    accumulate_it = 0
     for i, it in enumerate(train_it):
-        train_it[i] = it + n_iterations*(i//j)
+        if i+1 <len(train_it):
+            if train_it[i] > train_it[i+1]:
+                accumulate_it += train_it[i]+1
+        train_it[i] = it + accumulate_it
 
     '''
     - sort arrays to get nice plots
@@ -106,7 +97,8 @@ def main(argv):
     '''
     plt.figure(figsize=(12, 7))
     if not plot_all:
-        plt.plot(train_it, loss_tot, label = 'loss_total', linestyle='-')
+        plt.plot(train_it, loss_tot, label = 'train', linestyle='-', color='tab:blue')
+        if loss_val!=[]: plt.plot(train_it, loss_val, label = 'validation', linestyle='-', color='tab:orange')
     if plot_all:
         plt.plot(train_it, loss_tot, label = 'loss_total', marker = 'o', markersize=4, linestyle=':')
         plt.plot(train_it, loss_cls, label = 'loss_cls', marker = 's', markersize=4, linestyle=':')
@@ -116,8 +108,8 @@ def main(argv):
     #plt.plot(train_it, loss_sum, label = 'loss_sum', marker = 'o', markersize=3, linestyle='none')
     #plt.plot(train_it, accu, marker = 'o', markersize=3, linestyle='none', fillstyle='none')
 
-    plt.xlim([0,30000])
-    plt.ylim([0,0.4])
+    #plt.xlim([0,65000])
+    #plt.ylim([0,0.4])
     plt.grid()
     plt.legend()
     plt.xlabel("Iteration")
@@ -127,4 +119,3 @@ def main(argv):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-
