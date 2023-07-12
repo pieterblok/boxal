@@ -38,6 +38,7 @@ num_workers: 'integer'
 filter_empty_annotations: 'boolean'
 anchor_sizes: ['integer', 'list']
 anchor_aspect_ratios: ['float', 'list']
+print_validation_loss: 'boolean'
 
 # train-sampler
 train_sampler: 'string'

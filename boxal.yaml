@@ -37,6 +37,7 @@ step_ratios: [0.5, 0.8]
 gamma: 0.1
 train_batch_size: 1
 num_workers: 2
+print_validation_loss: True
 
 # train-sampler
 train_sampler: "TrainingSampler"
