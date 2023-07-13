@@ -4,14 +4,20 @@ setup_logger()
 
 # import some common libraries
 import os, sys, getopt
-import yaml
+import yaml, random, cv2
+import matplotlib.pyplot as plt
 
 # import some common detectron2 utilities
 from detectron2 import model_zoo
 from detectron2.config import get_cfg
 from detectron2.data import MetadataCatalog, DatasetCatalog
-from detectron2.evaluation import Inference
 from detectron2.data.datasets.oct import OCTData
+from detectron2.engine import DefaultPredictor
+from detectron2.data import detection_utils as utils
+from detectron2.utils.visualizer import Visualizer
+from detectron2.evaluation import COCOEvaluator, inference_on_dataset
+from detectron2.data import build_detection_test_loader
+
 
 '''
 1- read oct data

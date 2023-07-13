@@ -450,7 +450,7 @@ def train(config, weightsfolder, gpu_num, iter, val_value, dropout_probability, 
     cfg.DATASETS.TRAIN = ("train",)
     cfg.DATASETS.TEST = ("val",)
     cfg.NUM_GPUS = gpu_num
-    cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS = config['filter_empty_annotations']
+    #cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS = config['filter_empty_annotations']
     cfg.DATALOADER.NUM_WORKERS = config['num_workers']
     cfg.SOLVER.IMS_PER_BATCH = config['train_batch_size']
     cfg.SOLVER.WEIGHT_DECAY = config['weight_decay']
