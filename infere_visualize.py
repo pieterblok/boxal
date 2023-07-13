@@ -23,6 +23,42 @@ usage:
 	python infere_visualize.py --config <yaml_file>
 '''
 
+
+def infer_and_visualize(cfg, metadata, data_dicts, n):
+    predictor = DefaultPredictor(cfg)
+    for d in random.sample(data_dicts, n):
+        im = cv2.imread(d["file_name"])
+        outputs = predictor(im)  # output format is documented at https://detectron2.readthedocs.io/tutorials/models.html#model-output-format
+        groundtruth_instances = utils.annotations_to_instances(d['annotations'], (d['height'], d['width']))
+        v_pred = Visualizer(im[:, :, ::-1],
+                       metadata=metadata,
+                       scale=1#,
+                       #instance_mode=ColorMode.IMAGE_BW   # This option is only available for segmentation models
+        )
+        v_groundtruth = Visualizer(im[:, :, ::-1],
+                       metadata=metadata,
+                       scale=1#,
+                       #instance_mode=ColorMode.IMAGE_BW   # This option is only available for segmentation models
+        )
+        out_pred = v_pred.draw_instance_predictions(outputs["instances"].to("cpu"))
+        out_groundtruth = v_groundtruth.draw_dataset_dict(d)
+
+        '''
+        plot predictions
+        '''
+        figure, axis = plt.subplots(1, 2, figsize=(20, 10))
+        axis[0].imshow(out_pred.get_image()[:, :, ::-1])
+        axis[1].imshow(out_groundtruth.get_image()[:, :, ::-1])
+        axis[0].set_title('Predicition')
+        axis[1].set_title('Ground Truth')
+        plt.tight_layout()
+        plt.savefig(os.path.join(cfg.OUTPUT_DIR,os.path.basename(d["file_name"])))
+        plt.close()
+
+    evaluator = COCOEvaluator("test", output_dir=cfg.OUTPUT_DIR)
+    test_loader = build_detection_test_loader(cfg, "test")
+    print(inference_on_dataset(predictor.model, test_loader, evaluator))
+
 def main(argv):
     opts, args = getopt.getopt(argv,"hc:",["config="])
     for opt, arg in opts:
@@ -88,7 +124,7 @@ def main(argv):
     cfg.MODEL.WEIGHTS = os.path.join(weights_dir, "model_final.pth")  # path to the model we just trained
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = config['confidence_threshold']   # set a custom testing threshold
     cfg.OUTPUT_DIR = output_dir
-    Inference(cfg, metadata, test_dicts, n).infer_and_visualize()
+    infer_and_visualize(cfg, metadata, test_dicts, n)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
