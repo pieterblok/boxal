@@ -42,6 +42,7 @@ def main(argv):
     read metrics from the file and save them into arrays
     '''
     train_it = [] # training iteration number
+    val_it = []
     loss_tot = []
     loss_rpn_cls = []
     loss_rpn_loc = []
@@ -61,7 +62,9 @@ def main(argv):
                 loss_rpn_loc.append(dict['loss_rpn_loc'])
                 loss_box_reg.append(dict['loss_box_reg'])
                 loss_cls.append(dict['loss_cls'])
-                if 'validation_loss' in dict: loss_val.append(dict['validation_loss'])
+                if 'validation_loss' in dict:
+                    loss_val.append(dict['validation_loss'])
+                    val_it.append(dict['iteration'])
                 s = dict['loss_rpn_cls'] + dict['loss_rpn_loc'] + dict['loss_box_reg'] + dict['loss_cls']
                 loss_sum.append(s)
 
@@ -72,12 +75,24 @@ def main(argv):
                 accumulate_it += train_it[i]+1
         train_it[i] = it + accumulate_it
 
+    accumulate_it = 0
+    for i, it in enumerate(val_it):
+        if i+1 <len(val_it):
+            if val_it[i] > val_it[i+1]:
+                accumulate_it += val_it[i]+1
+        val_it[i] = it + accumulate_it
+
+
     '''
     - sort arrays to get nice plots
     - assign repeated elements to zero, just to ignore them.
     - sort them once more to move zeroed elements to the begining
     '''
-    train_it, loss_tot, accu, loss_rpn_cls, loss_rpn_loc, loss_box_reg, loss_cls, loss_sum = [list(t) for t in zip(*sorted(zip(train_it, loss_tot, accu, loss_rpn_cls, loss_rpn_loc, loss_box_reg, loss_cls, loss_sum)))]
+    train_it, loss_tot, accu, loss_rpn_cls, loss_rpn_loc, loss_box_reg, loss_cls, loss_sum = zip(*sorted(zip(train_it, loss_tot, accu, loss_rpn_cls, loss_rpn_loc, loss_box_reg, loss_cls, loss_sum)))
+    if len(val_it)>0:
+        val_it, loss_val = zip(*sorted(zip(val_it, loss_val)))
+
+
 #    temp=-1
 #    for idx,it in enumerate(train_it):
 #        if it==temp:
@@ -98,7 +113,7 @@ def main(argv):
     plt.figure(figsize=(12, 7))
     if not plot_all:
         plt.plot(train_it, loss_tot, label = 'train', linestyle='-', color='tab:blue')
-        if loss_val!=[]: plt.plot(train_it, loss_val, label = 'validation', linestyle='-', color='tab:orange')
+        if loss_val!=[]: plt.plot(val_it, loss_val, label = 'validation', linestyle='-', color='tab:orange')
     if plot_all:
         plt.plot(train_it, loss_tot, label = 'loss_total', marker = 'o', markersize=4, linestyle=':')
         plt.plot(train_it, loss_cls, label = 'loss_cls', marker = 's', markersize=4, linestyle=':')
@@ -108,8 +123,8 @@ def main(argv):
     #plt.plot(train_it, loss_sum, label = 'loss_sum', marker = 'o', markersize=3, linestyle='none')
     #plt.plot(train_it, accu, marker = 'o', markersize=3, linestyle='none', fillstyle='none')
 
-    #plt.xlim([0,65000])
-    #plt.ylim([0,0.4])
+    plt.xlim([0,max(train_it)+1])
+    plt.ylim([0,0.4])
     plt.grid()
     plt.legend()
     plt.xlabel("Iteration")
