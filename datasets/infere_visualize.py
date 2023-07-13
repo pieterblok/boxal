@@ -50,9 +50,9 @@ def main(argv):
     output_dir = config['outputdir']
     model_path = config['network_config']
     weightsroot = config['weightsroot']
-	experiment_name = config['experiment_name']
-	strategy = config['strategy']
-	weights_dir = os.path.join(weightsroot, experiment_name, strategy)
+    experiment_name = config['experiment_name']
+    strategy = config['strategy']
+    weights_dir = os.path.join(weightsroot, experiment_name, strategy)
 
     if not os.path.exists(test_dir):
         sys.exit("ERROR: {} does not exist!".format(test_dir))
