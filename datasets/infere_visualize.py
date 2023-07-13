@@ -12,6 +12,7 @@ from detectron2.data import MetadataCatalog, DatasetCatalog
 #from detectron2.modeling import build_model
 #from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.evaluation import Inference
+from detectron2.data.datasets.oct import OCTData
 
 '''
 1- read oct data
@@ -66,7 +67,7 @@ def main(argv):
     2. load dataset into a dictionary
 		here the function is called
     '''
-	data = OCTData(data_dir)
+    data = OCTData(data_dir)
     DatasetCatalog.register("test", lambda: data.get_oct_dicts()) # register your function
     MetadataCatalog.get("test").set(thing_classes=["damaged"])
     metadata = MetadataCatalog.get("test")
@@ -77,7 +78,7 @@ def main(argv):
     cfg already contains everything we've set previously.
 	We changed it a little bit for inference.
     '''
-	n = 40
+    n = 40
     cfg = get_cfg()
     cfg.merge_from_file(model_zoo.get_config_file(model_path))
     cfg.MODEL.ROI_HEADS.NUM_CLASSES = 1  # has five classes, one for each layer. (see https://detectron2.readthedocs.io/tutorials/datasets.html#update-the-config-for-new-datasets)
@@ -86,7 +87,8 @@ def main(argv):
     cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = 0.01 #suppress boxes with overlap (IoU) >= this threshold
     cfg.MODEL.WEIGHTS = os.path.join(weights_dir, "model_final.pth")  # path to the model we just trained
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.0001   # set a custom testing threshold
-	Inference(cfg, metadata, test_dicts, n).infer_and_visualize()
+    cfg.OUTPUT_DIR = output_dir
+    Inference(cfg, metadata, test_dicts, n).infer_and_visualize()
 
 if __name__ == "__main__":
     main(sys.argv[1:])
