@@ -470,18 +470,18 @@ def train(config, weightsfolder, gpu_num, iter, val_value, dropout_probability, 
     cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(config['classes'])
 
     ## add anchor sizes and aspect ratios
-    cfg.MODEL.ANCHOR_GENERATOR.SIZES = config['anchor_sizes']
-    cfg.MODEL.ANCHOR_GENERATOR.ASPECT_RATIOS = config['anchor_aspect_ratios']
+    #cfg.MODEL.ANCHOR_GENERATOR.SIZES = config['anchor_sizes']
+    #cfg.MODEL.ANCHOR_GENERATOR.ASPECT_RATIOS = config['anchor_aspect_ratios']
 
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
 
     if not skip_training:
-            if config['print_validation_loss'] and config['eval_period']>0:
-                trainer = CustomTrainer(cfg)
-            else:
-                warnings.warn("DefaultTrainer with no evaluation is used!")
-                cfg.DATASETS.TEST = () # no evaluater for the default trainer
-                trainer = DefaultTrainer(cfg)
+        if config['print_validation_loss'] and config['eval_period']>0:
+            trainer = CustomTrainer(cfg)
+        else:
+            warnings.warn("DefaultTrainer with no evaluation is used!")
+            cfg.DATASETS.TEST = () # no evaluater for the default trainer
+            trainer = DefaultTrainer(cfg)
         trainer.resume_or_load(resume=False)
         trainer.train()
 
