@@ -40,6 +40,7 @@ filter_empty_annotations: 'boolean'
 anchor_sizes: ['integer', 'list']
 anchor_aspect_ratios: ['float', 'list']
 print_validation_loss: 'boolean'
+roi_heads_batch_size_per_img: 'integer'
 
 # train-sampler
 train_sampler: 'string'

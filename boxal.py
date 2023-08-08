@@ -453,6 +453,7 @@ def train(config, weightsfolder, gpu_num, iter, val_value, dropout_probability, 
     #cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS = config['filter_empty_annotations']
     cfg.DATALOADER.NUM_WORKERS = config['num_workers']
     cfg.SOLVER.IMS_PER_BATCH = config['train_batch_size']
+    cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = config['roi_heads_batch_size_per_img']
     cfg.SOLVER.WEIGHT_DECAY = config['weight_decay']
     cfg.SOLVER.LR_POLICY = config['learning_policy']
     cfg.SOLVER.BASE_LR = config['learning_rate']
