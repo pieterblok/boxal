@@ -356,14 +356,6 @@ def copy_previous_weights(weights_folder, iteration):
 
 
 def train(config, weightsfolder, gpu_num, iter, val_value, dropout_probability, init=False, skip_training=False):
-    ## Hook to automatically save the best checkpoint
-    class BestCheckpointer(HookBase):
-        def __init__(self, iter, eval_period, val_value, metric):
-            self.iter = iter
-            self._period = eval_period
-            self.val_value = val_value
-            self.metric = metric
-            self.logger = setup_logger(name="d2.checkpointer.best")
 
         def store_best_model(self):
             metric = self.trainer.storage._latest_scalars

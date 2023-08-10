@@ -35,6 +35,7 @@ __all__ = [
     "EvalHook",
     "PreciseBN",
     "LossEvalHook",
+    "BestCheckpointer",
 ]
 
 
@@ -453,6 +454,16 @@ class PreciseBN(HookBase):
             )
             update_bn_stats(self._model, data_loader(), self._num_iter)
 
+class BestCheckpointer(HookBase):
+    """
+    Hook to automatically save the best checkpoint
+    """
+    def __init__(self, iter, eval_period, val_value, metric):
+        self.iter = iter
+        self._period = eval_period
+        self.val_value = val_value
+        self.metric = metric
+        self.logger = setup_logger(name="d2.checkpointer.best")
 
 class LossEvalHook(HookBase):
     """
