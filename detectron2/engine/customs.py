@@ -11,10 +11,10 @@ class CustomTrainer(DefaultTrainer):
     cutom trainer class to write validation loss as output. This is not done by the default trainer.
     '''
     def __init__(self, cfg, iter, val_value, metric):
-        super().__init__(cfg)
         self.iter = iter
         self.val_value = val_value
         self.metric = metric
+        super().__init__(cfg)
 
     @classmethod
     def build_evaluator(cls, cfg, dataset_name, output_folder=None):

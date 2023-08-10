@@ -22,6 +22,8 @@ from detectron2.solver import LRMultiplier
 from detectron2.utils.events import EventStorage, EventWriter
 from detectron2.utils.file_io import PathManager
 from detectron2.utils.logger import log_every_n_seconds
+from detectron2.utils.logger import setup_logger
+setup_logger()
 
 from .train_loop import HookBase
 
