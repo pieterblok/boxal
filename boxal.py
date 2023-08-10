@@ -443,7 +443,7 @@ def train(config, weightsfolder, gpu_num, iter, val_value, dropout_probability, 
 
     if not skip_training:
         if config['print_validation_loss'] and config['eval_period']>0:
-            trainer = CustomTrainer(cfg)
+            trainer = CustomTrainer(cfg, iter, val_value, 'bbox/AP'))
         else:
             warnings.warn("DefaultTrainer with no evaluation is used!")
             cfg.DATASETS.TEST = () # no evaluater for the default trainer
