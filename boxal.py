@@ -357,33 +357,6 @@ def copy_previous_weights(weights_folder, iteration):
 
 def train(config, weightsfolder, gpu_num, iter, val_value, dropout_probability, init=False, skip_training=False):
 
-        def store_best_model(self):
-            metric = self.trainer.storage._latest_scalars
-
-            try:
-                current_value = metric[self.metric][0]
-                try:
-                    highest_value = metric['highest_value'][0]
-                except:
-                    highest_value = self.val_value
-
-                self.logger.info("current-value ({:s}): {:.2f}, highest-value ({:s}): {:.2f}".format(self.metric, current_value, self.metric, highest_value))
-
-                if current_value > highest_value:
-                    self.logger.info("saving best model...")
-                    self.trainer.checkpointer.save("best_model_{:s}".format(str(iter).zfill(3)))
-                    self.trainer.storage.put_scalar('highest_value', current_value)
-                    comm.synchronize()
-            except:
-                pass
-
-        def after_step(self):
-            next_iter = self.trainer.iter + 1
-            is_final = next_iter == self.trainer.max_iter
-            if is_final or (self._period > 0 and next_iter % self._period == 0):
-                self.store_best_model()
-            self.trainer.storage.put_scalars(timetest=12)
-
     if not init:
         DatasetCatalog.remove("train")
         DatasetCatalog.remove("val")
