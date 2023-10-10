@@ -95,7 +95,7 @@ def check_config_file(config, config_filename, input_yaml):
         if not value.lower().endswith((".yaml", ".pth", ".pkl")):
             error(field, "load either the pretrained weights from the config-file (.yaml) or custom pretrained weights (.pth or .pkl)")
 
-    threshold_list = ['confidence_threshold', 'nms_threshold', 'dropout_probability', 'iou_thres']
+    threshold_list = ['confidence_threshold', 'nms_threshold', 'dropout_probability', 'iou_thres', 'random_ratio']
     for key, value in config.items():
         for key1, value1 in desired_inputs.items():
             if key == key1:
@@ -110,7 +110,7 @@ def check_config_file(config, config_filename, input_yaml):
                 elif key == "train_sampler":
                     schema[key] = {'type': value1, 'allowed': ['TrainingSampler', 'RepeatFactorTrainingSampler']}
                 elif key == "strategy":
-                    schema[key] = {'type': value1, 'allowed': ['uncertainty', 'certainty', 'random']}
+                    schema[key] = {'type': value1, 'allowed': ['uncertainty', 'certainty', 'random', 'hybrid']}
                 elif key == "mode":
                     schema[key] = {'type': value1, 'allowed': ['mean', 'min']}
                 elif key == "export_format":
@@ -583,6 +583,61 @@ def random_pooling(pool_list, pool_size, cfg, config, max_entropy, mcd_iteration
     if len(pool_list) > 0:
         sample_list = random.sample(pool_list, k=pool_size)
         pool = {k:[0.0, 0.0, 0.0, 0.0] for k in sample_list}
+    else:
+        print("All images are used for the training, stopping the program...")
+
+    return pool
+
+
+def hybrid_pooling(pool_list, pool_size, cfg, config, max_entropy, mcd_iterations, mode):
+    pool = {}
+    uncertainty_pool = {}
+    random_pool = {}
+    no_pred_list = []
+    cfg.MODEL.ROI_HEADS.SOFTMAXES = True
+    predictor = MonteCarloDropoutHead(cfg, mcd_iterations)
+    device = cfg.MODEL.DEVICE
+    random_pool_size = int(round(config['random_ratio'] * pool_size ))
+    uncertainty_pool_size = pool_size - random_pool_size
+
+    if len(pool_list) > 0:
+        ## find the images from the pool_list the algorithm is most uncertain about
+        for d in tqdm(range(len(pool_list))):
+            filename = pool_list[d]
+            if os.path.isfile(os.path.join(config['traindir'], filename)):
+                img = cv2.imread(os.path.join(config['traindir'], filename))
+                outputs = predictor(img)
+
+                obs = observations(outputs, device, config['iou_thres'])
+                if len(obs) == 0:
+                    no_pred_list.append(filename)
+                img_uncertainty, u_sem, u_spl, u_n = uncertainty(obs, mcd_iterations, max_entropy, device, mode) ## reduce the iterations when facing a "CUDA out of memory" error
+
+                if not np.isnan(img_uncertainty):
+                    if len(uncertainty_pool) < uncertainty_pool_size:
+                        uncertainty_pool[filename] = [float(img_uncertainty), float(u_sem), float(u_spl), float(u_n)]
+                    else:
+                        max_id, max_val = max(uncertainty_pool.items(), key=operator.itemgetter(1))
+                        if float(img_uncertainty) < max_val[0]:
+                            del uncertainty_pool[max_id]
+                            uncertainty_pool[filename] = [float(img_uncertainty), float(u_sem), float(u_spl), float(u_n)]
+
+        print("#### len, uncertainty_pool: ", len(uncertainty_pool), uncertainty_pool)
+        random_list = random.sample(no_pred_list, k=random_pool_size)
+        random_pool = {k:[0.0, 0.0, 0.0, 0.0] for k in random_list} #TODO: 0->nan
+        print("#### len, random_pool: ", len(random_pool), random_pool)
+        for k,v in random_pool.items():
+            img = cv2.imread(os.path.join(config['traindir'], k))
+            outputs = predictor(img)
+            obs = observations(outputs, device, config['iou_thres'])
+            if len(obs) > 0: print("#### observation found in random_pool!", k, obs)
+
+        pool={k:v for d in (uncertainty_pool,random_pool) for k,v in d.items()} # merge uncertainty_pool and random_pool
+
+        sorted_pool = sorted(pool.items(), key=operator.itemgetter(1))
+        pool = {}
+        for k, v in sorted_pool:
+            pool[k] = v
     else:
         print("All images are used for the training, stopping the program...")
 

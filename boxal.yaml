@@ -5,7 +5,6 @@
 # folders
 weightsroot: "./weights"
 resultsroot: "./results"
-outputdir: "./output"
 dataroot: "./datasets"
 initial_train_dir: "./datasets/initial_train"
 traindir: "./datasets/train"

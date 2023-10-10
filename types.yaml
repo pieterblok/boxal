@@ -8,7 +8,6 @@ initial_train_dir: 'string'
 traindir: 'string'
 valdir: 'string'
 testdir: 'string'
-outputdir: 'string'
 
 # data options
 use_initial_train_dir: 'boolean'
@@ -55,6 +54,7 @@ inference_num: 'integer'
 # active-learning sampling
 experiment_name: 'string'
 strategy: ['string', 'list']
+random_ratio: 'float'
 mode: ['string', 'list']
 initial_datasize: 'integer'
 pool_size: ['integer', 'list']
