@@ -87,7 +87,7 @@ def main(argv):
     opts, args = getopt.getopt(argv,"hn:c:p:j:",["num_rows=","csv_file=","png_dir=","json_dir="])
     for opt, arg in opts:
         if opt == '-h':
-            print ('python convert_box_annot_csv_to_labelme_json.py -n <number_of_rows_to_be_read_from_csv_file> -c <csv_filename> -p <png_dir> -j <json_dir>')
+            print ('Usage: python convert_box_annot_csv_to_labelme_json.py -n <number_of_rows_to_be_read_from_csv_file> -c <csv_filename> -p <png_dir> -j <json_dir>')
             sys.exit()
         elif opt in ("-n", "--num_rows"):
             n = int(arg)
@@ -98,7 +98,7 @@ def main(argv):
         elif opt in ("-j", "--json_dir"):
             json_dir = arg
     if len(argv) < 5:
-        print("WARNING: default input files will be used!")
+        sys.exit("Usage: python convert_box_annot_csv_to_labelme_json.py -n <number_of_rows_to_be_read_from_csv_file> -c <csv_filename> -p <png_dir> -j <json_dir>")
 
     if not os.path.exists(csv_filename):
         sys.exit("ERROR: {} does not exist!".format(csv_filename))
