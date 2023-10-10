@@ -60,6 +60,7 @@ def main(argv):
     ap = []
     ap50 = []
     ap75 = []
+    loss_val_min = 100
     with open(metrics_filename) as f:
         for json_obj in f:
             dict = json.loads(json_obj)
@@ -74,6 +75,7 @@ def main(argv):
                 if 'validation_loss' in dict:
                     loss_val.append(dict['validation_loss'])
                     val_it.append(dict['iteration'])
+                    if dict['validation_loss']<loss_val_min: loss_val_min = dict['validation_loss']
                 if "bbox/AP" in dict:
                     ap.append(dict["bbox/AP"])
                     ap50.append(dict["bbox/AP50"])
@@ -81,7 +83,7 @@ def main(argv):
                     ap_it.append(dict['iteration'])
                 s = dict['loss_rpn_cls'] + dict['loss_rpn_loc'] + dict['loss_box_reg'] + dict['loss_cls']
                 loss_sum.append(s)
-    
+    print("loss_val_min: ", loss_val_min)
     accumulate_it = 0
     for i, it in enumerate(train_it):
         if i+1 <len(train_it):
@@ -119,7 +121,7 @@ def main(argv):
     '''
     draw loss plots
     '''
-    plt.figure(figsize=(12, 7))
+    plt.figure(figsize=(10, 7))
     if not plot_all:
         plt.plot(train_it, loss_tot, label = 'train', linestyle='-', color='tab:blue')
         if loss_val!=[]: plt.plot(val_it, loss_val, label = 'validation', linestyle='-', color='tab:orange')
@@ -145,14 +147,14 @@ def main(argv):
     '''
     draw AP plots
     '''
-    plt.figure(figsize=(12, 7))
+    plt.figure(figsize=(10, 7))
     if ap!=[]:
         plt.plot(ap_it, ap, label = 'mAP', linestyle='-', color='tab:blue')
         plt.plot(ap_it, ap50, label = 'AP50', linestyle='-', color='tab:red')
         plt.plot(ap_it, ap75, label = 'AP75', linestyle='-', color='tab:green')
 
     plt.xlim([0,max(train_it)+1])
-    #if y_limit>0: plt.ylim([0,y_limit])
+    plt.ylim([0,102])
     plt.grid()
     plt.legend()
     plt.xlabel("Iteration")
