@@ -12,3 +12,5 @@ work_process.md
 boxal_*py
 boxal_*yaml
 *log
+*png
+IOB_trainings/
