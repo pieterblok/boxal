@@ -307,7 +307,10 @@ def create_pool_list(config, train_names, loop_number):
         train_file = open(os.path.join(config['dataroot'], "train.txt"), "r")
         all_train_names = train_file.readlines()
         all_train_names = [all_train_names[idx].rstrip('\n') for idx in range(len(all_train_names))]
-        pool_list = list(set(all_train_names) - set(train_names))
+        init_train_file = open(os.path.join(config['dataroot'], "initial_train.txt"), "r")
+        all_init_train_names = init_train_file.readlines()
+        all_init_train_names = [all_init_train_names[idx].rstrip('\n') for idx in range(len(all_init_train_names))]
+        pool_list = list(set(all_train_names) - set(all_init_train_names))
     return pool_list, val_list, test_list
 
 
@@ -517,16 +520,17 @@ def uncertainty_pooling(pool_list, pool_size, cfg, config, max_entropy, mcd_iter
                 outputs = predictor(img)
 
                 obs = observations(outputs, device, config['iou_thres'])
+                # the img_uncertainty is actually img_certainty (bad naming)!
                 img_uncertainty, u_sem, u_spl, u_n = uncertainty(obs, mcd_iterations, max_entropy, device, mode) ## reduce the iterations when facing a "CUDA out of memory" error
 
                 if not np.isnan(img_uncertainty):
-                    if len(pool) < pool_size:
+                    if len(pool) < pool_size: # fill the pool with the first k(=pool_size) image
                         pool[filename] = [float(img_uncertainty), float(u_sem), float(u_spl), float(u_n)]
                     else:
-                        max_id, max_val = max(pool.items(), key=operator.itemgetter(1))
-                        if float(img_uncertainty) < max_val[0]:
-                            del pool[max_id]
-                            pool[filename] = [float(img_uncertainty), float(u_sem), float(u_spl), float(u_n)]
+                        max_id, max_val = max(pool.items(), key=operator.itemgetter(1)) # find the most certain img in the current pool 
+                        if float(img_uncertainty) < max_val[0]: # if the new img is less certain than the current most certain
+                            del pool[max_id] # del the current most certain img
+                            pool[filename] = [float(img_uncertainty), float(u_sem), float(u_spl), float(u_n)] # add the new img to the pool
 
         sorted_pool = sorted(pool.items(), key=operator.itemgetter(1))
         pool = {}
@@ -670,6 +674,12 @@ if __name__ == "__main__":
 
             ## do the pooling (eval is a python-method that executes a function with a string-input)
             pool = eval(strategy + '_pooling(pool_list, pool_size, cfg, config, max_entropy, mcd_iterations, mode)')
+
+            with open(os.path.join(resultsfolder, 'pool.csv'), 'w') as f:
+                pool_keys =list( pool.keys())
+                pool_keys.sort()
+                for k in pool_keys:
+                    print(k, file=f)
 
             ## update the training, validation, test list
             train_list = train_names + list(pool.keys())
