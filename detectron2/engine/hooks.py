@@ -481,7 +481,7 @@ class BestCheckpointer(HookBase):
 
             if current_value > highest_value:
                 self.logger.info("saving best model...")
-                self.trainer.checkpointer.save("best_model_{:s}".format(str(iter).zfill(3)))
+                self.trainer.checkpointer.save("best_model_{:s}".format(str(self.iter).zfill(3)))
                 self.trainer.storage.put_scalar('highest_value', current_value)
                 comm.synchronize()
         except:
