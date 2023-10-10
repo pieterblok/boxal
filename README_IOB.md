@@ -16,45 +16,56 @@ singularity build --fakeroot boxal.sif boxal.def
 ```
 singularity run --nv -B /projects/ -B /usr/local/scratch/ singularity/boxal.sif
 ```
-2. convert excel annotation file to labelme json:
+2. convert csv annotation file to labelme json:
 ```
-python3 datasets/convert_box_annot_excel_to_labelme_json.py
+python3 datasets/convert_box_annot_csv_to_labelme_json.py -n <Number of rows in the csv file> -c <path_to_box_annotation_csv_file> -p <path_to_png_folder> -j <path_to_json_folder>
 ```
-3. configure input parameters by modifying the boxal.yaml
+3. configure input parameters by modifying the boxal_yaml_file
 
 4. run the training:
 ```
-python3 boxal.py --config boxal.yaml
+python3 boxal.py --config <path_to_boxal_yaml_file>
 ```
 
 ---------------------------------
-# the entire protocol 
+# the entire protocol
 The steps for the training process of the box detection model are summarized as follows:
 1. Copy  the single_box_annotation_final.csv to the workstation:
 ```
-scp -P 8181 /home/pkhateri/Documents/data/progstar/box_annot/single_box_annotation_final.csv pkhateri@localhost:/projects/parisa/data/boxal/faster_rcnn/
+scp -P 8181 <path_to_csv_file_on_local_computer> pkhateri@localhost:/usr/local/scratch/parisa/data/boxal
 ```
-2. Copy the annotated files to the initial_training or the annotate dir:
+2. [first time only] Copy the annotated files to the initial_training or the annotate dir:
 ```
 python copy_png_files_listed_in_csv.py
 ```
-3. Remove the annotated files which have been copied to the test and val dir, from train dir:
+3. [first time only] Remove the annotated files which have been copied to the test and val dir, from train dir:
 ```
 python snippets/rm_files_in_train_already_in_test_and_val.py
 ```
-4. Shuffle and divide to 0.8/0.2 for train and validation:
+4. [first time only] Shuffle and divide to 0.8/0.2 for train and validation:
 ```
 shuffle_divide_copy_files.py -i <input_dir> -o <output_dir>
 ```
+5. [for parallel testing]
+  - clean the data dir from previous runs: `bash clean.sh`
+  - update the csv file according to the new annotations in single_box_annotation_final.csv and the pool.csv file:
+        ```
+        python update_csv.py path_to_pool_file/pool.csv single_box_annotation_final.csv current_annot_file_path next_annot_file_path
+        ```
+  - replace current_annot_file_path and next_annot_file_path witht relevant names, e.g.: `single_box_annotation_uncertainty_7.csv` and `single_box_annotation_hybrid_8.csv`
+  - move the newly annotated images to the initial_train folder (n1 and n2 determine the range of rows in the newly generated csv file, `next_annot_file_path` is the file just created in the previous step):
+        ```
+        python3 mv_png_files_listed_in_csv_to_initial_train.py n1 n2 next_annot_file_path> mv_png_files_listed_in_csv_to_initial_train_n1_n2.log
+        ```
 5. Convert box annotations in the csv file to labelme json file for the existing png files:
 ```
-python datasets/convert_box_annot_csv_to_labelme_json.py
+python3 datasets/convert_box_annot_csv_to_labelme_json.py -n <Number of rows in the csv file> -c <path_to_box_annotation_csv_file> -p <path_to_png_folder> -j <path_to_json_folder>
 ```
 6. Train the active learning model with the current annotation:
 ```
-python3 boxal.py --config boxal.yaml
+python3 boxal.py --config <path_to_boxal_yaml_file>
 ```
-7. The  model introduces new images to be annotated, located at the `/projects/parisa/data/boxal/faster_rcnn/train/annotate` directory.
+7. The  model introduces new images to be annotated, located at the `train/annotate` directory, and printed in `pool.csv` file in the `results` directory.
 
 ------------------------------------
 # make a test run on data on scratch dir:
@@ -94,7 +105,7 @@ This file includes some instances. Part of the file below:
 3. `results/exp1/uncertainty/coco_instances_results.json`
 This file is very similar to the previous file but with different instances.
 4. `results/exp1/uncertainty/uncertainty.csv`
-The content of this file is: 
+The content of this file is:
 ```
 train_size,val_size,test_size,mAP,mAP-damaged
 16,31,29,12.8,12.8
