@@ -1,0 +1,44 @@
+Bootstrap: docker
+From: nvcr.io/nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
+# Nvidia driver version 515.57 with Cuda version 11.7 are already installed
+
+%post
+#        export TZ='Europe/Zurich'
+#        export DEBIAN_FRONTEND=noninteractive
+
+        apt-get update
+        apt-get -y install python3.8-dev pip wget git vim
+
+        pip install opencv-python-headless
+        pip install tensorboard
+        pip install torch==1.11.0+cu113 torchvision==0.12.0+cu113 torchaudio==0.11.0 --extra-index-url https://download.pytorch.org/whl/cu113
+        pip install 'git+https://github.com/facebookresearch/fvcore'
+
+	pip install cython pyyaml==5.1
+	pip install -U 'git+https://github.com/cocodataset/cocoapi.git#subdirectory=PythonAPI'
+	pip install jupyter
+	pip install nbformat==4.4
+	pip install scikit-image matplotlib imageio
+	pip install black isort flake8 flake8-bugbear flake8-comprehensions
+
+	pip install scikit-learn==0.22.2
+	pip install pandas
+	pip install h5py
+	pip install structlog
+	pip install pytorch-lightning==0.8.5
+	pip install transformers
+	pip install datasets
+	pip install onnx=1.12.0
+	pip install baal
+	pip install xmltodict
+	pip install seaborn
+	pip install statsmodels
+	pip install cerberus
+	pip install darwin-py
+
+	cd /opt
+        git clone https://github.com/IOB-Basel/boxal.git boxal_repo
+        cd boxal_repo
+        git checkout iob
+        pip install -e .
+
