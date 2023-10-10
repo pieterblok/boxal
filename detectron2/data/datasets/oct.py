@@ -16,7 +16,7 @@ class OCTData:
         dataset_dicts = []
         for idx, f in enumerate(glob.glob(self.data_dir+"/*.png")):
             json_file = os.path.join(self.data_dir, os.path.splitext(os.path.basename(f))[0]+".json")
-            print(json_file)
+            #print(json_file)
             img_annot = json.load(open(json_file))
             record={}
             record["file_name"] = f
@@ -26,7 +26,7 @@ class OCTData:
 
             objs = []
             for box in img_annot["shapes"]:
-                print('\tbounding box:', box['points'])
+                #print('\tbounding box:', box['points'])
                 p1 = box['points'][0]
                 p2 = box['points'][1]
                 obj = {
