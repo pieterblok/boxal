@@ -110,7 +110,7 @@ def check_config_file(config, config_filename, input_yaml):
                 elif key == "train_sampler":
                     schema[key] = {'type': value1, 'allowed': ['TrainingSampler', 'RepeatFactorTrainingSampler']}
                 elif key == "strategy":
-                    schema[key] = {'type': value1, 'allowed': ['uncertainty', 'certainty', 'random', 'hybrid']}
+                    schema[key] = {'type': value1, 'allowed': ['uncertainty', 'certainty', 'random', 'hybrid', 'stratified_random_progstar']}
                 elif key == "mode":
                     schema[key] = {'type': value1, 'allowed': ['mean', 'min']}
                 elif key == "export_format":
@@ -139,8 +139,8 @@ def check_config_file(config, config_filename, input_yaml):
                         if not all(isinstance(v, known_types[value1[0]]) for v in value):
                             error_list.update({key: ["not all items are of type: " + str(value1[0])]})
                         if key == "strategy":
-                            if not all(v in ['uncertainty', 'certainty', 'random'] for v in value):
-                                error_list.update({key: ["choose 1 of these 3 options: 'uncertainty', 'certainty', 'random'"]})
+                            if not all(v in ['uncertainty', 'certainty', 'random', 'hybrid', 'stratified_random_progstar'] for v in value):
+                                error_list.update({key: ["choose 1 of these options: 'uncertainty', 'certainty', 'random', 'hybrid', 'stratified_random_progstar'"]})
                         if key == "mode":
                             if not all(v in ['mean', 'min'] for v in value):
                                 error_list.update({key: ["choose 1 of these 2 options: 'mean', 'min'"]})
@@ -643,6 +643,42 @@ def hybrid_pooling(pool_list, pool_size, cfg, config, max_entropy, mcd_iteration
 
     return pool
 
+def stratified_random_progstar_pooling(pool_list, pool_size, cfg, config, max_entropy, mcd_iterations, mode):
+    pool = {}
+    '''
+    divide pool_list to central and peripheral Bscans
+    central_ratio: ratio of the selected bscans with bscan_num=[19...29]
+    '''
+    central_ratio = 0.3
+    central_bscan_nums = range(19,30) #19...29
+    central_size = round(central_ratio*pool_size)
+    peripheral_size = pool_size - central_size
+
+    suffix_list = [str(i)+'.png' for i in central_bscan_nums]
+    central_list = []
+    peripheral_list = []
+    for f in pool_list:
+        if any(f.endswith(s) for s in suffix_list):
+            central_list.append(f)
+        else:
+            peripheral_list.append(f)
+
+    with open("central.csv", 'w') as file:
+        for f in central_list:
+            print(f, file=file)
+    with open("peripheral.csv", 'w') as file:
+        for f in peripheral_list:
+            print(f, file=file)
+
+    if len(pool_list) > 0:
+        central_sample_list = random.sample(central_list, k=central_size)
+        peripheral_sample_list = random.sample(peripheral_list, k=peripheral_size)
+        sample_list = central_sample_list+peripheral_sample_list
+        pool = {k:[0.0, 0.0, 0.0, 0.0] for k in sample_list}
+    else:
+        print("All images are used for the training, stopping the program...")
+
+    return pool
 
 if __name__ == "__main__":
     logger.addHandler(file_handler)
