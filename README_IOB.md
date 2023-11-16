@@ -26,7 +26,14 @@ python3 datasets/convert_box_annot_csv_to_labelme_json.py -n <Number of rows in 
 ```
 python3 boxal.py --config <path_to_boxal_yaml_file>
 ```
-
+5. run inference on test data:
+```
+python3 infer_visualize.py --config <path_to_boxal_yaml_file>
+```
+6. draw train/val loss as well as AP values vs the epoch num according to the metric file as input:
+```
+python draw_metrics.py -i <input_filename> -o <output_plot_filename> -p
+```
 ---------------------------------
 # the entire protocol
 The steps for the training process of the box detection model are summarized as follows:
