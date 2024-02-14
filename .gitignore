@@ -13,4 +13,6 @@ boxal_*py
 boxal_*yaml
 *log
 *png
+*csv
+*txt
 IOB_trainings/

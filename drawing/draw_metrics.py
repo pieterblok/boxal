@@ -121,7 +121,7 @@ def main(argv):
     '''
     draw loss plots
     '''
-    plt.figure(figsize=(10, 7))
+    plt.figure(figsize=(3, 7)) #(10, 7)
     if not plot_all:
         plt.plot(train_it, loss_tot, label = 'train', linestyle='-', color='tab:blue')
         if loss_val!=[]: plt.plot(val_it, loss_val, label = 'validation', linestyle='-', color='tab:orange')
@@ -147,7 +147,7 @@ def main(argv):
     '''
     draw AP plots
     '''
-    plt.figure(figsize=(10, 7))
+    plt.figure(figsize=(3, 7)) #(10, 7)
     if ap!=[]:
         plt.plot(ap_it, ap, label = 'mAP', linestyle='-', color='tab:blue')
         plt.plot(ap_it, ap50, label = 'AP50', linestyle='-', color='tab:red')

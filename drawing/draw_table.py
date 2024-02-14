@@ -2,7 +2,7 @@ import os, sys, getopt
 import json
 from matplotlib import pyplot as plt
 import ast
-
+import numpy as np
 
 def main():
     '''
@@ -15,17 +15,17 @@ def main():
     y_limit = 0
     x_label = ""
     y_label = ""
-    
-    print(my_arr)
+    x_idx = np.arange(1, len(my_arr) + 1)
             
     '''
     draw plot
     '''
-    plt.figure(figsize=(16, 4))
-    plt.plot(my_arr, linestyle=':', marker='o', color='tab:blue')
+    plt.figure(figsize=(18, 2))
+    plt.plot(x_idx, my_arr, linestyle=':', marker='o', color='tab:orange')
 
-    #plt.xlim([0,max(train_it)+1])
-    plt.ylim([0.1,0.135])
+    plt.xlim([0.5, 10.5])
+    plt.ylim([0.1,0.18])
+    plt.xticks(np.linspace(1, 10, 10))
     plt.grid()
     #plt.legend()
     #plt.xlabel(x_label)

@@ -20,7 +20,7 @@ singularity run --nv -B /projects/ -B /usr/local/scratch/ singularity/boxal.sif
 ```
 python3 datasets/convert_box_annot_csv_to_labelme_json.py -n <Number of rows in the csv file> -c <path_to_box_annotation_csv_file> -p <path_to_png_folder> -j <path_to_json_folder>
 ```
-3. configure input parameters by modifying the boxal_yaml_file
+3. configure input parameters by modifying the `boxal_yaml_file`
 
 4. run the training:
 ```
