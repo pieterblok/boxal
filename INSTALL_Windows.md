@@ -1,11 +1,11 @@
 ## Installation, tested on Windows 11
 
 **1) First install CUDA and NVIDIA drivers:**
-[Youtube link](https://www.youtube.com/watch?v=r7Am-ZGMef8)
+- [Youtube link](https://www.youtube.com/watch?v=r7Am-ZGMef8) <br/> <br/>
 
 **2) Install C++ build tools:**
 - download vs_buildtools version between 2017 and 2019: [Google Drive download link](https://drive.google.com/file/d/1ZM6SXUuLSgii66B1k7gVBxM5USnn-ycg/view?usp=sharing) 
-- install c++ build tools: make sure you check the option "C++ build tools" in the popup window (Workloads). Refer to this [Youtube link](https://www.youtube.com/watch?v=_keTL9ymGjw) 
+- install c++ build tools: make sure you check the option "C++ build tools" in the popup window (Workloads). Refer to this [Youtube link](https://www.youtube.com/watch?v=_keTL9ymGjw) <br/> <br/>
 
 **3) Make a virtual environment (called boxal) using the terminal:**
 - conda create --name boxal python=3.9 pip

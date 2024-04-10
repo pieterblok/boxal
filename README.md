@@ -20,7 +20,7 @@ BoxAL is an active learning framework that automatically selects the most-inform
 [![IMAGE ALT TEXT HERE](./demo/video_screenshot.png?raw=true)](https://www.youtube.com/watch?v=OS2EjuNLTcQ) <br/> <br/>--->
 
 ## Installation
-Linux/Ubuntu: [INSTALL.md](INSTALL.md)
+Linux/Ubuntu: [INSTALL.md](INSTALL.md)<br/><br/>
 Windows: [INSTALL_Windows.md](INSTALL_Windows.md)
 <br/> <br/>
 
