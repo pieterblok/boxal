@@ -627,7 +627,7 @@ if __name__ == "__main__":
     logger.info("Starting main-application")
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default='maskAL.yaml', help='yaml with the training parameters')
+    parser.add_argument('--config', type=str, default='boxal.yaml', help='yaml with the training parameters')
     args = parser.parse_args()
 
     try:
