@@ -36,7 +36,7 @@
 - pip install cerberus
 - pip install darwin-py <br/> <br/>
 
-**7) Check if Pytorch links with CUDA (in the potatoscan virtual environment, using the terminal):**
+**7) Check if Pytorch links with CUDA (in the boxal virtual environment, using the terminal):**
 - python
 - import torch
 - torch.version.cuda *(should print 11.1)*
@@ -44,7 +44,7 @@
 - torch.cuda.get_device_name(0) *(should print the name of the first GPU)*
 - quit() <br/> <br/>
 
-**8) Check if detectron2 is found in python (in the potatoscan virtual environment, using the terminal):**
+**8) Check if detectron2 is found in python (in the boxal virtual environment, using the terminal):**
 - python
 - import detectron2 *(should not print an error)*
 - from detectron2 import model_zoo *(should not print an error)*
