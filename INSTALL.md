@@ -94,6 +94,7 @@ Tested with: Pytorch 1.8.0 & torchvision 0.9.0 (Ubuntu 16.04/18.04 and CUDA 10.1
 - pip install scikit-image matplotlib imageio
 - pip install black isort flake8 flake8-bugbear flake8-comprehensions
 - pip install -e .
+- pip install pandas
 - pip install baal 
 - pip install xmltodict 
 - pip install seaborn 

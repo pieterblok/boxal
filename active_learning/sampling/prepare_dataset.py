@@ -809,6 +809,43 @@ def visualize_cnn(img_np, classes, scores, boxes, class_names):
     return imgcopy
 
 
+def visualize_uncertainties(img_np, boxes, total_uncertainty, semantic_uncertainty, spatial_uncertainty, occurrence_uncertainty):
+    box_color = (255, 0, 0)
+    box_thickness = 5
+
+    font_face = cv2.FONT_HERSHEY_DUPLEX
+    font_scale = 1
+    font_thickness = 1
+
+    textbox_color = [255, 255, 255]
+    font_color = [0, 0, 0]
+
+    imgcopy = img_np.copy()
+
+    for box, t_u, sem_u, spl_u, occ_u in zip(boxes, total_uncertainty, semantic_uncertainty, spatial_uncertainty, occurrence_uncertainty):
+        x1, y1, x2, y2 = box.detach().cpu().numpy().astype(np.int32)
+        cv2.rectangle(imgcopy, (x1, y1), (x2, y2), box_color, box_thickness)
+
+        usem = float(sem_u.detach().cpu().numpy())
+        uspl = float(spl_u.detach().cpu().numpy())
+        uocc = float(occ_u.detach().cpu().numpy())
+        utotal = float(t_u.detach().cpu().numpy())
+
+        text_str = f"Semantic: {usem:.2f}\nSpatial: {uspl:.2f}\nOccurrence: {uocc:.2f}\nTotal: {utotal:.2f}"
+
+        text_lines = text_str.split('\n')
+        line_height = 35 
+        start_position = (x2, y1)
+
+        for i, line in enumerate(text_lines):
+            text_w, text_h = cv2.getTextSize(line, font_face, font_scale, font_thickness)[0]
+            y = start_position[1] + i * line_height
+            imgcopy = cv2.rectangle(imgcopy, (start_position[0], y + 5), (start_position[0] + text_w, y - text_h - 10), textbox_color, -1)
+            imgcopy = cv2.putText(imgcopy, line, (start_position[0], y), font_face, font_scale, font_color, font_thickness)
+
+    return imgcopy
+
+
 def write_file(imgdir, images, name):
     with open(os.path.join(imgdir, "{:s}.txt".format(name)), 'w') as f:
         for img in images:
@@ -1058,95 +1095,8 @@ def check_json_presence(config, imgdir, dataset, name, cfg=[]):
             shutil.copyfile(os.path.join(imgdir, image_copy), os.path.join(annot_folder, os.path.basename(image_copy)))
 
     ## check whether all images have been annotated in the "annotate" subdirectory
-    if not config['auto_annotate']:
-        while len(diff_img_annot) > 0:
-            diff_img_annot, cur_annot_diff = highlight_missing_annotations(annot_folder, cur_annot_diff)
-
-    else:
-        if len(diff_img_annot) > 0:
-            if config['export_format'] == 'supervisely':
-                out_ann_dir = mkdir_supervisely(annot_folder, config['dataroot'], config['supervisely_meta_json'])
-
-            rename_xml_files(annot_folder)
-            images, annotations = list_files(annot_folder)
-            use_coco = False
-
-            if not cfg:
-                cfg = get_cfg()
-                cfg.merge_from_file(model_zoo.get_config_file(config['network_config']))
-                cfg.NUM_GPUS = 1
-
-                if config['pretrained_weights'].lower().endswith(".yaml"):
-                    cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(config['pretrained_weights'])
-                    use_coco = True
-                elif config['pretrained_weights'].lower().endswith((".pth", ".pkl")):
-                    cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(config['classes'])
-                    cfg.MODEL.WEIGHTS = config['pretrained_weights']
-
-                cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = config['confidence_threshold']
-                cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = config['nms_threshold']
-                cfg.DATALOADER.NUM_WORKERS = 0
-                cfg.MODEL.ROI_HEADS.SOFTMAXES = False
-                
-                model = build_model(cfg)
-                checkpointer = DetectionCheckpointer(model)
-                checkpointer.load(cfg.MODEL.WEIGHTS)
-
-            predictor = DefaultPredictor(cfg)
-
-            for i in tqdm(range(len(images))):
-                # Load the RGB image
-                imgname = images[i]
-                basename = os.path.basename(imgname)
-                img = cv2.imread(os.path.join(annot_folder, imgname))
-                height, width, _ = img.shape
-
-                # Do the image inference and extract the outputs from Mask R-CNN
-                outputs = predictor(img)
-                instances = outputs["instances"].to("cpu")
-                classes = instances.pred_classes.numpy()
-                scores = instances.scores.numpy()
-                boxes = instances.pred_boxes.tensor.numpy()
-
-                if use_coco:
-                    v = Visualizer(img[:, :, ::-1], MetadataCatalog.get(cfg.DATASETS.TRAIN[0]), scale=1.2)
-                    class_labels = v.metadata.get("thing_classes", None)
-                else:
-                    class_labels = config['classes']
-
-                class_names = []
-                for h in range(len(classes)):
-                    class_id = classes[h]
-                    class_name = class_labels[class_id]
-                    class_names.append(class_name)
-                    
-                img_vis = visualize_cnn(img, classes, scores, boxes, class_labels)
-
-                if config['export_format'] == 'labelme':
-                    write_labelme_annotations(annot_folder, basename, class_names, boxes, height, width)
-                elif config['export_format'] == 'cvat':
-                    write_cvat_annotations(annot_folder, basename, class_names, boxes, height, width)
-                elif config['export_format'] == 'supervisely':
-                    write_supervisely_annotations(out_ann_dir, basename, class_names, boxes, height, width, config['supervisely_meta_json'])
-                    write_supervisely_annotations(annot_folder, basename, class_names, boxes, height, width, config['supervisely_meta_json'])
-                elif config['export_format'] == "darwin":
-                    write_darwin_annotations(annot_folder, basename, class_names, boxes, height, width)
-                else:
-                    logger.error("unsupported export_format in the boxal.yaml file")
-                    sys.exit("Closing application")
-
-            diff_img_annot, cur_annot_diff = highlight_missing_annotations(annot_folder, cur_annot_diff)
-            while len(diff_img_annot) > 0:
-                diff_img_annot, cur_annot_diff = highlight_missing_annotations(annot_folder, cur_annot_diff)
-
-            if config['export_format'] == 'cvat':
-                create_zipfile(annot_folder)
-            
-            if config['export_format'] == 'supervisely':
-                print("Load the preprocessed folder '{:s}' into Supervisely \n\nAfter checking, copy-paste the updated json-annotations to folder '{:s}'\n".format(os.path.join(config['dataroot'], "out_supervisely"), annot_folder))
-                input("Press Enter to continue")
-            else:
-                input("Press Enter when all annotations have been checked in folder: {:s}".format(annot_folder))
+    while len(diff_img_annot) > 0:
+        diff_img_annot, cur_annot_diff = highlight_missing_annotations(annot_folder, cur_annot_diff)
 
     if os.path.isdir(annot_folder):
         ## copy the annotations back to the imgdir
@@ -1463,9 +1413,9 @@ def prepare_all_dataset_randomly(rootdir, imgdir, classes, train_val_test_split,
         create_json(rootdir, imgdir, dataset, classes, name)   
 
 
-def prepare_complete_dataset(rootdir, classes, traindir, valdir, testdir):
+def prepare_complete_dataset(config):
     try:
-        for imgdir, name in zip([traindir, valdir, testdir], ['train', 'val', 'test']):
+        for imgdir, name in zip([config['traindir'], config['valdir'], config['testdir']], ['train', 'val', 'test']):
             print("")
             print("Processing {:s}-dataset: {:s}".format(name, imgdir))
             rename_xml_files(imgdir)
@@ -1473,9 +1423,9 @@ def prepare_complete_dataset(rootdir, classes, traindir, valdir, testdir):
             print("{:d} matching images found!".format(len(images)))
             print("{:d} matching annotations found!".format(len(annotations)))
 
-            write_file(rootdir, images, name)
-            check_json_presence(imgdir, images, name)
-            create_json(rootdir, imgdir, images, classes, name)
+            write_file(config['dataroot'], images, name)
+            check_json_presence(config, imgdir, images, name)
+            create_json(config['dataroot'], imgdir, images, config['classes'], name)
     except:
         logger.error("Cannot create complete-dataset")
         sys.exit("Closing application")   

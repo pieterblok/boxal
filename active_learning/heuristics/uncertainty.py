@@ -6,10 +6,9 @@
 # This function is inspired by the uncertainty_aware_dropout function:
 # https://github.com/RovelMan/active-learning-framework/blob/master/al_framework/strategies/dropout.py
 
-import numpy as np
 import torch
 
-def uncertainty(observations, iterations, max_entropy, device, mode = 'mean'):
+def uncertainty(observations, iterations, max_entropy, device):
     """
     To calculate the uncertainty metrics on the observations
     """
@@ -17,6 +16,7 @@ def uncertainty(observations, iterations, max_entropy, device, mode = 'mean'):
     usem_list = []
     uspl_list = []
     un_list = []
+    mean_bboxes = []
     
     for key, val in observations.items():
         softmaxes = [v['softmaxes'] for v in val]
@@ -32,6 +32,8 @@ def uncertainty(observations, iterations, max_entropy, device, mode = 'mean'):
         mean_bbox = torch.mean(torch.stack([v['pred_boxes'].tensor for v in val]), axis=0)
         bbox_IOUs = []
         mean_bbox = mean_bbox.squeeze(0)
+        mean_bboxes.append(mean_bbox)
+
         boxAArea = torch.multiply((mean_bbox[2] - mean_bbox[0] + 1), (mean_bbox[3] - mean_bbox[1] + 1))
         for v in val:
             current_bbox = v['pred_boxes'].tensor.squeeze(0)
@@ -68,34 +70,4 @@ def uncertainty(observations, iterations, max_entropy, device, mode = 'mean'):
         u_h = torch.multiply(u_sem_spl, u_n)
         uncertainty_list.append(u_h.unsqueeze(0))
 
-    if uncertainty_list:
-        uncertainty_list = torch.cat(uncertainty_list)
-
-        if mode == 'min':
-            uncertainty = torch.min(uncertainty_list)
-            usem_list = torch.min(torch.cat(usem_list))
-            uspl_list = torch.min(torch.cat(uspl_list))
-            un_list = torch.min(torch.cat(un_list))
-        elif mode == 'mean':
-            uncertainty = torch.mean(uncertainty_list)
-            usem_list = torch.mean(torch.cat(usem_list))
-            uspl_list = torch.mean(torch.cat(uspl_list))
-            un_list = torch.mean(torch.cat(un_list))
-        elif mode == 'max':
-            uncertainty = torch.max(uncertainty_list)
-            usem_list = torch.max(torch.cat(usem_list))
-            uspl_list = torch.max(torch.cat(uspl_list))
-            un_list = torch.max(torch.cat(un_list))
-        else:
-            uncertainty = torch.mean(uncertainty_list)
-            usem_list = torch.mean(torch.cat(usem_list))
-            uspl_list = torch.mean(torch.cat(uspl_list))
-            un_list = torch.mean(torch.cat(un_list))
-            
-    else:
-        uncertainty = torch.tensor([float('NaN')]).to(device)
-        usem_list = torch.tensor([float('NaN')]).to(device)
-        uspl_list = torch.tensor([float('NaN')]).to(device)
-        un_list = torch.tensor([float('NaN')]).to(device)
-
-    return uncertainty.detach().cpu().numpy().squeeze(0), usem_list.detach().cpu().numpy().squeeze(0), uspl_list.detach().cpu().numpy().squeeze(0), un_list.detach().cpu().numpy().squeeze(0)
+    return uncertainty_list, usem_list, uspl_list, un_list, mean_bboxes

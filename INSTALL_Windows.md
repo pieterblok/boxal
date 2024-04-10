@@ -28,7 +28,8 @@
 - pip install -U fvcore
 - pip install scikit-image matplotlib imageio
 - pip install black isort flake8 flake8-bugbear flake8-comprehensions
-- pip install -e . 
+- pip install -e .
+- pip install pandas 
 - pip install baal 
 - pip install xmltodict 
 - pip install seaborn 
